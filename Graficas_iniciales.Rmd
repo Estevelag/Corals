@@ -1,0 +1,4396 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+#Codigo que cra graficas de todos los datos 
+#Siempre undir antes de correr SESSION SET WORING D TO SET SOURCE FILEL OCATION
+library(readxl)
+library(ggplot2)
+#library(plyr)# mapping values in a dataframe
+library(dplyr)
+library(ggforce)# para width de l gráficass
+#library(wesanderson)
+library(PERMANOVA)
+```
+
+
+
+```{r}
+#Se importan los datos
+Febrero<-read_excel("Febrero_matriz.xlsx")
+Julio<-read_excel("Julio_matriz.xlsx")
+Octubre<-read_excel("Octubre_matriz.xlsx")
+Porcentaje_coral<-read_excel("Porcentajecorla.xlsx")
+
+#se aÃ±ade la columna mes
+Febrero$Mes<-c(rep("Febrero",length(Febrero$Localidad)))
+Julio$Mes<-c(rep("Julio",length(Julio$Localidad)))
+Octubre$Mes<-c(rep("Octubre",length(Octubre$Localidad)))
+
+
+#Se crea la super matriz San_Bernardo
+San_Bernardo<-rbind(Febrero,Julio)
+San_Bernardo<-rbind(San_Bernardo,Octubre)
+
+```
+#Ahora se procede a acoplar las enfermedades a los datos 
+
+```{r}
+diccenf<-c("OD","YBD","BL")
+San_Bernardo$`Major Category`[San_Bernardo$Notes %in% diccenf]<-"Diseased Coral"
+Febrero$`Major Category`[Febrero$Notes %in% diccenf]<-"Diseased Coral"
+Julio$`Major Category`[Julio$Notes %in% diccenf]<-"Diseased Coral"
+Octubre$`Major Category`[Octubre$Notes %in% diccenf]<-"Diseased Coral"
+
+
+
+
+
+```
+
+
+
+```{r}
+#Grafica de categorias mayores
+mayores<-with(San_Bernardo,table(San_Bernardo$Mes,San_Bernardo$`Major Category`))
+barplot(mayores, beside = TRUE, legend = TRUE)
+
+#DATOS NUMERICOS CATEGORIAS MAYORES
+FreqF<-count(Febrero, Febrero$`Major Category`, sort = TRUE)
+FreqJ<-count(Julio, Julio$`Major Category`, sort = TRUE)
+FreqO<-count(Octubre, Octubre$`Major Category`, sort = TRUE)
+
+#pasar cada frecuencia a porcentaje por mes
+FreqF$n*1/sum(FreqF$n)
+FreqF$Mes<-c(rep("Febrero",length(FreqF$n)))
+FreqF$Porcentaje<-c(FreqF$n*1/sum(FreqF$n)*100)
+
+FreqJ$n*1/sum(FreqJ$n)
+FreqJ$Mes<-c(rep("Julio",length(FreqJ$n)))
+FreqJ$Porcentaje<-c(FreqJ$n*1/sum(FreqJ$n)*100)
+
+FreqO$n*1/sum(FreqO$n)
+FreqO$Mes<-c(rep("Octubre",length(FreqO$n)))
+FreqO$Porcentaje<-c(FreqO$n*1/sum(FreqO$n)*100)
+
+newnames<-colnames(FreqF)[c(2:length(FreqF$n))]
+newnames[!is.na(newnames)]
+
+colnames(FreqF)<-c("Mayor_categories",newnames)
+colnames(FreqJ)<-c("Mayor_categories",newnames)
+colnames(FreqO)<-c("Mayor_categories",newnames)
+
+
+#union meses categorias mayores
+Cat_mayores<-rbind(FreqF,FreqJ)
+Cat_mayores<-rbind(Cat_mayores,FreqO)
+
+#Grafica categorias mayores por mes
+
+cat<-t(Cat_mayores)
+Cmayores<-with(Cat_mayores,table(Cat_mayores$Mes,Cat_mayores$Mayor_categories))
+
+```
+
+
+```{r}
+ggplot(Cat_mayores, aes(x = factor(Mayor_categories), y = Porcentaje, fill = Mes)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura por mes") +
+  scale_y_continuous(breaks=seq(0,40,5))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_brewer(palette = "Paired")
+
+```
+
+
+```{r}
+#DATOS NUMERICOS CATEGORIAS MAYOREs
+#AL_Blocks$BLOCK_ID<- with(AL_Blocks, paste0(STATE, COUNTY, TRACT, BLOCK))
+
+
+FebreroD <- Febrero %>% filter(`Zona` == "Dentro" )
+FebreroF <- Febrero %>% filter(`Zona` == "Fuera" )
+JulioD <- Julio %>% filter(`Zona` == "Dentro" )
+JulioF <- Julio %>% filter(`Zona` == "Fuera" )
+OctubreD <- Octubre %>% filter(`Zona` == "Dentro" )
+OctubreF <- Octubre %>% filter(`Zona` == "Fuera" )
+
+FreqFD<-count(FebreroD, FebreroD$`Major Category`, sort = TRUE)
+FreqFF<-count(FebreroF, FebreroF$`Major Category`, sort = TRUE)
+FreqJD<-count(JulioD, JulioD$`Major Category`, sort = TRUE)
+FreqJF<-count(JulioF, JulioF$`Major Category`, sort = TRUE)
+FreqOD<-count(OctubreD, OctubreD$`Major Category`, sort = TRUE)
+FreqOF<-count(OctubreF, OctubreF$`Major Category`, sort = TRUE)
+
+
+#pasar cada frecuencia a porcentaje por mes
+FreqFD$n*1/sum(FreqFD$n)
+FreqFD$Mes<-c(rep("Febrero_Dentro",length(FreqFD$n)))
+FreqFD$Porcentaje<-c(FreqFD$n*1/sum(FreqFD$n)*100)
+FreqFF$n*1/sum(FreqFF$n)
+FreqFF$Mes<-c(rep("Febrero_Fuera",length(FreqFF$n)))
+FreqFF$Porcentaje<-c(FreqFF$n*1/sum(FreqFF$n)*100)
+
+FreqJD$n*1/sum(FreqJD$n)
+FreqJD$Mes<-c(rep("Julio_Dentro",length(FreqJD$n)))
+FreqJD$Porcentaje<-c(FreqJD$n*1/sum(FreqJD$n)*100)
+FreqJF$n*1/sum(FreqJF$n)
+FreqJF$Mes<-c(rep("Julio_Fuera",length(FreqJF$n)))
+FreqJF$Porcentaje<-c(FreqJF$n*1/sum(FreqJF$n)*100)
+
+FreqOD$n*1/sum(FreqOD$n)
+FreqOD$Mes<-c(rep("Octubre_Dentro",length(FreqOD$n)))
+FreqOD$Porcentaje<-c(FreqOD$n*1/sum(FreqOD$n)*100)
+FreqOF$n*1/sum(FreqOF$n)
+FreqOF$Mes<-c(rep("Octubre_Fuera",length(FreqOF$n)))
+FreqOF$Porcentaje<-c(FreqOF$n*1/sum(FreqOF$n)*100)
+
+newnames<-colnames(FreqFD)[c(2:length(FreqFD$n))]
+newnames[!is.na(newnames)]
+
+colnames(FreqFD)<-c("Mayor_categories",newnames)
+colnames(FreqJD)<-c("Mayor_categories",newnames)
+colnames(FreqOD)<-c("Mayor_categories",newnames)
+colnames(FreqFF)<-c("Mayor_categories",newnames)
+colnames(FreqJF)<-c("Mayor_categories",newnames)
+colnames(FreqOF)<-c("Mayor_categories",newnames)
+
+
+#union meses categorias mayores
+Cat_mayores_Zona<-rbind(FreqFD,FreqJD)
+Cat_mayores_Zona<-rbind(Cat_mayores_Zona,FreqOD)
+Cat_mayores_Zona<-rbind(Cat_mayores_Zona,FreqFF)
+Cat_mayores_Zona<-rbind(Cat_mayores_Zona,FreqJF)
+Cat_mayores_Zona<-rbind(Cat_mayores_Zona,FreqOF)
+
+#Cambio de nombre mes a mes_zona
+colnames(Cat_mayores_Zona)<-c( "Mayor_categories","n","Mes_Zona","Porcentaje")
+
+
+```
+```{r}
+ggplot(Cat_mayores_Zona, aes(x = factor(Mayor_categories), y = Porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat = "identity", position = position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura por mes") +
+  scale_y_continuous(breaks=seq(0,40,5))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_brewer(palette = "Paired")
+
+```
+```{r}
+#Creacion matriz por especies de coral
+FreqFD<-count(FebreroD, FebreroD$`ID Name`, sort = TRUE)
+FreqFF<-count(FebreroF, FebreroF$`ID Name`, sort = TRUE)
+FreqJD<-count(JulioD, JulioD$`ID Name`, sort = TRUE)
+FreqJF<-count(JulioF, JulioF$`ID Name`, sort = TRUE)
+FreqOD<-count(OctubreD, OctubreD$`ID Name`, sort = TRUE)
+FreqOF<-count(OctubreF, OctubreF$`ID Name`, sort = TRUE)
+
+
+#pasar cada frecuencia a porcentaje por mes
+FreqFD$n*1/sum(FreqFD$n)
+FreqFD$Mes<-c(rep("Febrero_Dentro",length(FreqFD$n)))
+FreqFD$Porcentaje<-c(FreqFD$n*1/sum(FreqFD$n)*100)
+FreqFF$n*1/sum(FreqFF$n)
+FreqFF$Mes<-c(rep("Febrero_Fuera",length(FreqFF$n)))
+FreqFF$Porcentaje<-c(FreqFF$n*1/sum(FreqFF$n)*100)
+
+FreqJD$n*1/sum(FreqJD$n)
+FreqJD$Mes<-c(rep("Julio_Dentro",length(FreqJD$n)))
+FreqJD$Porcentaje<-c(FreqJD$n*1/sum(FreqJD$n)*100)
+FreqJF$n*1/sum(FreqJF$n)
+FreqJF$Mes<-c(rep("Julio_Fuera",length(FreqJF$n)))
+FreqJF$Porcentaje<-c(FreqJF$n*1/sum(FreqJF$n)*100)
+
+FreqOD$n*1/sum(FreqOD$n)
+FreqOD$Mes<-c(rep("Octubre_Dentro",length(FreqOD$n)))
+FreqOD$Porcentaje<-c(FreqOD$n*1/sum(FreqOD$n)*100)
+FreqOF$n*1/sum(FreqOF$n)
+FreqOF$Mes<-c(rep("Octubre_Fuera",length(FreqOF$n)))
+FreqOF$Porcentaje<-c(FreqOF$n*1/sum(FreqOF$n)*100)
+
+newnames<-colnames(FreqFD)[c(2:length(FreqFD$n))]
+newnames[!is.na(newnames)]
+
+colnames(FreqFD)<-c("Especie",newnames)
+colnames(FreqJD)<-c("Especie",newnames)
+colnames(FreqOD)<-c("Especie",newnames)
+colnames(FreqFF)<-c("Especie",newnames)
+colnames(FreqJF)<-c("Especie",newnames)
+colnames(FreqOF)<-c("Especie",newnames)
+
+
+#union meses especies
+Epecies_Zona<-rbind(FreqFD,FreqJD)
+Epecies_Zona<-rbind(Epecies_Zona,FreqOD)
+Epecies_Zona<-rbind(Epecies_Zona,FreqFF)
+Epecies_Zona<-rbind(Epecies_Zona,FreqJF)
+Epecies_Zona<-rbind(Epecies_Zona,FreqOF)
+
+#Cambio de nombre mes a mes_zona
+colnames(Epecies_Zona)<-c( "Especie","n","Mes_Zona","Porcentaje")
+
+#Cambios grafica especie
+cosas_no_especies<-c("Tape","Macroalga carnosa","Sponge","Shadow","Sand","Sand","Other","Old dead coral","Coralina incrustante","Coralina arborecente","Dead coral with algae","Recently dead coral")
+
+for (i in cosas_no_especies){
+  Epecies_Zona<-Epecies_Zona %>% filter(Especie != i)
+}
+
+Cambio_nombre_especie<-c("Montastrea faveolata","Montastrea franksi","Montastraea annularis", "Porites divaricata", "Gorgonian")
+Nombre_real<-c("Orbicella faveolata","Orbicella franksi","Orbicella annularis", "Porites porites", "Coral blando")
+
+
+for (i in 1:length(Nombre_real)){Epecies_Zona$Especie <- replace(Epecies_Zona$Especie, Epecies_Zona$Especie == Cambio_nombre_especie[i], Nombre_real[i])}
+
+group.colors <- c(Febrero_Dentro ="#9ECAE1" ,Febrero_Fuera="#084594", Julio_Dentro = "#9ECAE1" , Julio_Fuera = "#084594" , Octubre_Dentro = "#9ECAE1" , Octubre_Fuera="#084594")
+
+g<-ggplot(Epecies_Zona, aes(x = reorder(factor(Especie),Porcentaje), y = Porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat = "identity", position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Especie)) +
+  ggtitle("Cobertura de especies por mes") +
+  scale_y_continuous(breaks=seq(0,40,5))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  #scale_fill_brewer(palette = "Paired")+
+  theme(axis.text.y = element_text(face = "italic"))+
+  # theme(legend.position = c(0.82, 0.33))+
+  theme(plot.title = element_text( size=14, face="bold"))+
+  #theme(legend.background = element_rect(fill="gray",
+                                  # size=0.5, linetype="solid", 
+                                  # colour ="black"))+
+  coord_flip()
+g
+
+
+```
+
+
+```{r}
+Cambio_nombre_especie<-c("Montastrea faveolata","Montastrea franksi","Montastraea annularis", "Porites divaricata", "Gorgonian")
+Nombre_real<-c("Orbicella faveolata","Orbicella franksi","Orbicella annularis", "Porites porites", "Coral blando")
+
+
+for (i in 1:length(Nombre_real)){San_Bernardo$`ID Name` <- replace(San_Bernardo$`ID Name`, San_Bernardo$`ID Name` == Cambio_nombre_especie[i], Nombre_real[i])}
+
+#Creación de matriz dentro y fuera
+Dentro  <- San_Bernardo %>% filter(`Zona` == "Dentro" )
+Fuera <- San_Bernardo %>% filter(`Zona` == "Fuera" )
+
+#Creacion matriz por especies de coral
+FreqDentro<-count(Dentro, Dentro$`ID Name`, sort = TRUE)
+FreqFuera<-count(Fuera, Fuera$`ID Name`, sort = TRUE)
+
+
+#pasar cada frecuencia a porcentaje por mes
+FreqDentro$n*1/sum(FreqDentro$n)
+FreqDentro$Zona<-c(rep("Dentro",length(FreqDentro$n)))
+FreqDentro$Porcentaje<-c(FreqDentro$n*1/sum(FreqDentro$n)*100)
+
+
+FreqFuera$n*1/sum(FreqFuera$n)
+FreqFuera$Zona<-c(rep("Fuera",length(FreqFuera$n)))
+FreqFuera$Porcentaje<-c(FreqFuera$n*1/sum(FreqFuera$n)*100)
+
+newnames<-colnames(FreqFuera)[c(2:length(FreqFuera$n))]
+newnames[!is.na(newnames)]
+
+colnames(FreqFuera)<-c("Especie",newnames)
+colnames(FreqDentro)<-c("Especie",newnames)
+
+#union zonas especies
+Epecies_Zona_real<-rbind(FreqDentro,FreqFuera)
+
+
+#Cambios grafica especie
+cosas_no_especies<-c("Tape","Macroalga carnosa","Sponge","Shadow","Sand","Sand","Other","Old dead coral","Coralina incrustante","Coralina arborecente","Dead coral with algae","Recently dead coral")
+
+for (i in cosas_no_especies){
+  Epecies_Zona_real<-Epecies_Zona_real %>% filter(Especie != i)
+}
+
+#Cambio_nombre_especie<-c("Montastrea faveolata","Montastrea franksi","Montastraea annularis", "Porites divaricata", "Gorgonian")
+#Nombre_real<-c("Orbicella faveolata","Orbicella franksi","Orbicella annularis", "Porites porites", "Coral blando")
+
+
+# for (i in 1:length(Nombre_real)){Epecies_Zona_real$Especie <- replace(Epecies_Zona_real$Especie, Epecies_Zona_real$Especie == Cambio_nombre_especie[i], Nombre_real[i])}
+
+group.colors <- c(Dentro ="#9ECAE1" ,Fuera="#084594")
+
+g<-ggplot(Epecies_Zona_real, aes(x = reorder(factor(Especie),Porcentaje), y = Porcentaje, fill = Zona)) +
+  geom_bar(stat = "identity", position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Especie)) +
+  ggtitle("Cobertura de especies por zona") +
+  scale_y_continuous(breaks=seq(0,40,5))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  #scale_fill_brewer(palette = "Paired")+
+  theme(axis.text.y = element_text(face = "italic"))+
+  # theme(legend.position = c(0.82, 0.33))+
+  theme(plot.title = element_text( size=14, face="bold"))+
+  #theme(legend.background = element_rect(fill="gray",
+                                  # size=0.5, linetype="solid", 
+                                  # colour ="black"))+
+  coord_flip()
+g
+
+```
+
+
+
+```{r}
+
+#Para febrero
+                                                
+Feb <-Febrero %>% group_by(Sitio,Transect)
+FreqsFeb<-count(Feb, Feb$`Major Category`)
+
+#Para volverl porcentual
+reps<-0
+sumat<-0
+ant<-FreqsFeb$Transect[1]
+vecs=c()
+#Recorre ls transectos sumando n, si el transecto cambia detine la suma e inicia una nueva
+for(i in 1:length(FreqsFeb$Transect)){
+  if (ant!= FreqsFeb$Transect[i]){
+    vecs<-c(vecs,sumat,reps)
+    sumat<-0
+    reps<-0
+    sumat<-sumat+FreqsFeb$n[i]
+    reps<-reps+1
+    ant<-FreqsFeb$Transect[i]
+  }
+  else {
+    sumat<-sumat+FreqsFeb$n[i]
+    ant<-FreqsFeb$Transect[i]
+    reps<-reps+1
+  }
+  if (i == length(FreqsFeb$Transect)){
+    vecs<-c(vecs,sumat,reps)
+  }
+}
+vecs
+#Sacar porcentaje 
+divition<-c(rep(300,4),rep(300,6),rep(330,5),rep(360,8),rep(300,8),rep(300,8),rep(330,7),rep(300,7),rep(390,6),rep(330,8),rep(360,8),rep(300,9))
+divition<-divition/100
+FreqsFeb$porcentaje<-FreqsFeb$n/divition
+
+
+# Para julio
+
+Jul <-Julio %>% group_by(Sitio,Transect)
+FreqsJul<-count(Jul, Jul$`Major Category`)
+
+#Para volverl porcentual
+reps<-0
+sumat<-0
+ant<-FreqsJul$Transect[1]
+vecs=c()
+for(i in 1:length(FreqsJul$Transect)){
+  if (ant!= FreqsJul$Transect[i]){
+    vecs<-c(vecs,sumat,reps)
+    sumat<-0
+    reps<-0
+    sumat<-sumat+FreqsJul$n[i]
+    reps<-reps+1
+    ant<-FreqsJul$Transect[i]
+  }
+  else {
+    sumat<-sumat+FreqsJul$n[i]
+    ant<-FreqsJul$Transect[i]
+    reps<-reps+1
+  }
+  if (i == length(FreqsJul$Transect)){
+    vecs<-c(vecs,sumat,reps)
+  }
+}
+vecs
+
+divition<-c(rep(360,4),rep(360,6),rep(360,6),rep(390,7),rep(390,8),rep(390,6),rep(390,7),rep(390,9),rep(390,8),rep(390,8),rep(390,8),rep(390,7))
+divition<-divition/100
+FreqsJul$porcentaje<-FreqsJul$n/divition
+
+
+
+# Para octubre
+
+Oct <-Octubre %>% group_by(Sitio,Transect)
+FreqsOct<-count(Oct, Oct$`Major Category`)
+
+#Para volverl porcentual
+reps<-0
+sumat<-0
+ant<-FreqsOct$Transect[1]
+vecs=c()
+for(i in 1:length(FreqsOct$Transect)){
+  if (ant!= FreqsOct$Transect[i]){
+    vecs<-c(vecs,sumat,reps)
+    sumat<-0
+    reps<-0
+    sumat<-sumat+FreqsOct$n[i]
+    reps<-reps+1
+    ant<-FreqsOct$Transect[i]
+  }
+  else {
+    sumat<-sumat+FreqsOct$n[i]
+    ant<-FreqsOct$Transect[i]
+    reps<-reps+1
+  }
+  if (i == length(FreqsOct$Transect)){
+    vecs<-c(vecs,sumat,reps)
+  }
+}
+vecs
+
+divition<-c(rep(300,4),rep(270,6),rep(330,6),rep(360,7),rep(300,8),rep(360,8),rep(390,8),rep(300,6),rep(360,7),rep(420,8),rep(240,8),rep(390,8))
+divition<-divition/100
+FreqsOct$porcentaje<-FreqsOct$n/divition
+
+colnames(FreqsFeb)<-c( "Sitio", "Transect","Major_Category","n","porcentaje")
+colnames(FreqsJul)<-c( "Sitio", "Transect","Major_Category","n","porcentaje")
+colnames(FreqsOct)<-c( "Sitio", "Transect","Major_Category","n","porcentaje")
+
+#Hay que incluir el zona mes a cada uno:
+
+
+mezona<-c()
+for(i in 1:length(FreqsOct$Transect)){
+  if (FreqsOct$Sitio[i] == "Sitio 1" || FreqsOct$Sitio[i] == "Sitio 2" ){
+    mezona<-c(mezona,"Octubre_Dentro")
+  }
+ if (FreqsOct$Sitio[i] == "Sitio 3" || FreqsOct$Sitio[i] == "Sitio 4"){
+    mezona<-c(mezona,"Octubre_Fuera")
+ }
+}
+FreqsOct$Mes_Zona<-mezona
+
+mezona<-c()
+for(i in 1:length(FreqsJul$Transect)){
+  if (FreqsJul$Sitio[i] == "Sitio 1" || FreqsJul$Sitio[i] == "Sitio 2" ){
+    mezona<-c(mezona,"Julio_Dentro")
+  }
+ if (FreqsJul$Sitio[i] == "Sitio 3" || FreqsJul$Sitio[i] == "Sitio 4"){
+    mezona<-c(mezona,"Julio_Fuera")
+ }
+}
+FreqsJul$Mes_Zona<-mezona
+
+mezona<-c()
+for(i in 1:length(FreqsFeb$Transect)){
+  if (FreqsFeb$Sitio[i] == "Sitio 1" || FreqsFeb$Sitio[i] == "Sitio 2" ){
+    mezona<-c(mezona,"Febrero_Dentro")
+  }
+ if (FreqsFeb$Sitio[i] == "Sitio 3" || FreqsFeb$Sitio[i] == "Sitio 4"){
+    mezona<-c(mezona,"Febrero_Fuera")
+ }
+}
+FreqsFeb$Mes_Zona<-mezona
+
+
+#union Freqs meses
+Replicatotal<-rbind(FreqsFeb,FreqsJul)
+Replicatotal<-rbind(Replicatotal,FreqsOct)
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(Replicatotal, aes(x = Major_Category, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura por mes") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+
+
+```
+
+
+```{r}
+Cambio_nombre<-c("Coral","Dead coral with Algae","Diseased Coral", "Gorgonians", "Macroalgae", "Other live", "Sand, pavement, rubble", "Sponges", "Tape, wand, shadow")
+Nombre_real<-c("Coral","Coral muerto","Coral enfermo", "Coral blando", "Macroalgas", "Otros animales", "Arena", "Esponjas", "Sombra, cuadrante PVC")
+
+
+for (i in 1:length(Nombre_real)){Replicatotal$Major_Category <- replace(Replicatotal$Major_Category, Replicatotal$Major_Category == Cambio_nombre[i], Nombre_real[i])}
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+g<-ggplot(Replicatotal, aes(x = Major_Category, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar', position="dodge")+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por mes") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+g <- g+ scale_x_discrete(limits = c("Coral","Coral muerto","Coral enfermo", "Coral blando", "Macroalgas", "Esponjas", "Otros animales", "Arena", "Sombra, cuadrante PVC"))
+g
+```
+#filtro categorias para pruebas estadisticas
+```{r}
+CoralReplica <- Replicatotal %>% filter(`Major_Category` == "Coral" )
+#CoralMuertoReplica <- Replicatotal %>% filter(`Major_Category` == "Dead coral with Algae" )
+#CoralEnfermosReplica <- Replicatotal %>% filter(`Major_Category` == "Diseased Coral" )
+#MacroalgaReplica <- Replicatotal %>% filter(`Major_Category` == "Macroalgae" )
+#EsponjaReplica <- Replicatotal %>% filter(`Major_Category` == "Sponges" )
+CoralMuertoReplica <- Replicatotal %>% filter(`Major_Category` == "Coral muerto")
+CoralEnfermosReplica <- Replicatotal %>% filter(`Major_Category` == "Coral enfermo" )
+MacroalgaReplica <- Replicatotal %>% filter(`Major_Category` == "Macroalgas" )
+EsponjaReplica <- Replicatotal %>% filter(`Major_Category` == "Esponjas" )
+#Graficas categorias individuales
+```
+
+
+```{r}
+
+#Prueba estadistica corales de  anova
+
+library(multcompView)
+anova <- aov(porcentaje ~ Mes_Zona, data = CoralReplica)
+summary(anova)
+TUKEY <- TukeyHSD(anova)
+
+print(TUKEY)
+cld <- multcompLetters4(anova, TUKEY)
+print(cld)
+
+generate_label_df <- function(TUKEY, variable){
+ 
+     # Extract labels and factor levels from Tukey post-hoc 
+     Tukey.levels <- TUKEY[[1]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     
+     #I need to put the labels in the same order as in the boxplot :
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "CoralEnfermosReplica$Major_Category")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura coralina por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+```{r}
+#Prueba estadistica corales de  anova
+
+library(multcompView)
+anova <- aov(porcentaje ~ Mes_Zona, data = CoralReplica)
+summary(anova)
+TUKEY <- TukeyHSD(anova)
+
+print(TUKEY)
+cld <- multcompLetters4(anova, TUKEY)
+print(cld)
+
+generate_label_df <- function(TUKEY, variable){
+ 
+     # Extract labels and factor levels from Tukey post-hoc 
+     Tukey.levels <- TUKEY[[1]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     
+     #I need to put the labels in the same order as in the boxplot :
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "CoralEnfermosReplica$Major_Category")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura coralina por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+
+
+```{r}
+
+## Esta es el procesamiento de datos transformndolos con box cox para que sea lo mas homocedastico posible y usar kruskall wallis y levene que no asumen normalidad de los datos.
+
+
+library(MASS)
+library(car)
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+names<-unique(CoralReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralReplica[CoralReplica$Mes_Zona==i | CoralReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+# Apply the function on my dataset
+LABELS <- generate_label_Krus(pvals , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura coralina por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox 
+
+```
+```{r}
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+names<-unique(CoralReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralReplica[CoralReplica$Mes_Zona==i | CoralReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+LABELS <- generate_label_Krus(pvals , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura coralina por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+
+
+```{r}
+
+
+anova <- aov(porcentaje ~ Mes_Zona, data = CoralMuertoReplica)
+summary(anova)
+TUKEY <- TukeyHSD(anova)
+
+print(TUKEY)
+cld <- multcompLetters4(anova, TUKEY)
+print(cld)
+
+generate_label_df <- function(TUKEY, variable){
+ 
+     # Extract labels and factor levels from Tukey post-hoc 
+     Tukey.levels <- TUKEY[[1]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     
+     #I need to put the labels in the same order as in the boxplot :
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+     }
+ 
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "CoralEnfermosReplica$Major_Category")
+ 
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralMuertoReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de corales muertos por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+```{r}
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+names<-unique(CoralMuertoReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralMuertoReplica[CoralMuertoReplica$Mes_Zona==i | CoralMuertoReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+LABELS <- generate_label_Krus(pvals , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralMuertoReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de corales muetos por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+
+
+
+```{r}
+
+library(MASS)
+library(car)
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+names<-unique(CoralMuertoReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralMuertoReplica[CoralMuertoReplica$Mes_Zona==i | CoralMuertoReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+# Apply the function on my dataset
+LABELS <- generate_label_Krus(pvals , "CoralMuertoReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralMuertoReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de corales muertos por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+
+
+```{r}
+anova <- aov(porcentaje ~ Mes_Zona, data = CoralEnfermosReplica)
+summary(anova)
+TUKEY <- TukeyHSD(anova)
+
+print(TUKEY)
+cld <- multcompLetters4(anova, TUKEY)
+print(cld)
+
+generate_label_df <- function(TUKEY, variable){
+ 
+     # Extract labels and factor levels from Tukey post-hoc 
+     Tukey.levels <- TUKEY[[1]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     
+     #I need to put the labels in the same order as in the boxplot :
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+     }
+ 
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "CoralEnfermosReplica$Major_Category")
+ 
+ 
+# A panel of colors to draw each group with the same color :
+my_colors <- c( 
+  rgb(166, 206, 227,maxColorValue = 255), #A6CEE3
+  rgb(242,104,34,maxColorValue = 255), #1F78B4" 
+  rgb(178, 223, 138,maxColorValue = 255),#B2DF8A
+  rgb(51, 160, 44,maxColorValue = 255),#33A02C
+  rgb(202, 178, 214,maxColorValue = 255),#CAB2D6
+  rgb(106, 61, 154,maxColorValue = 255))#6A3D9A)
+ 
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralEnfermosReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de corales enfermos por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+
+
+```{r}
+names<-unique(CoralMuertoReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralEnfermosReplica[CoralEnfermosReplica$Mes_Zona==i | CoralEnfermosReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+# Apply the function on my dataset
+LABELS <- generate_label_Krus(pvals , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralEnfermosReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de corales enfermos por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+```{r}
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+names<-unique(CoralEnfermosReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralEnfermosReplica[CoralEnfermosReplica$Mes_Zona==i | CoralEnfermosReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+LABELS <- generate_label_Krus(pvals , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(CoralEnfermosReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de corales enfermos por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+
+```{r}
+anova <- aov(porcentaje ~ Mes_Zona, data = MacroalgaReplica)
+summary(anova)
+TUKEY <- TukeyHSD(anova)
+
+print(TUKEY)
+cld <- multcompLetters4(anova, TUKEY)
+print(cld)
+
+generate_label_df <- function(TUKEY, variable){
+ 
+     # Extract labels and factor levels from Tukey post-hoc 
+     Tukey.levels <- TUKEY[[1]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     
+     #I need to put the labels in the same order as in the boxplot :
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+     }
+ 
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Replicatotal$Major_Category")
+ 
+ 
+# A panel of colors to draw each group with the same color :
+my_colors <- c( 
+  rgb(166, 206, 227,maxColorValue = 255), #A6CEE3
+  rgb(242,104,34,maxColorValue = 255), #1F78B4" 
+  rgb(178, 223, 138,maxColorValue = 255),#B2DF8A
+  rgb(51, 160, 44,maxColorValue = 255),#33A02C
+  rgb(202, 178, 214,maxColorValue = 255),#CAB2D6
+  rgb(106, 61, 154,maxColorValue = 255))#6A3D9A)
+ 
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura macroalgas por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+
+```
+```{r}
+#Grafica ,macroalgas krustl
+names<-unique(MacroalgaReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-MacroalgaReplica[MacroalgaReplica$Mes_Zona==i | MacroalgaReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+# Apply the function on my dataset
+LABELS <- generate_label_Krus(pvals , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura macroalgas por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+
+```
+```{r}
+
+names<-unique(MacroalgaReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-MacroalgaReplica[MacroalgaReplica$Mes_Zona==i | MacroalgaReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+# Apply the function on my dataset
+LABELS <- generate_label_Krus(pvals , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura macroalgas por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+```
+
+
+```{r}
+anova <- aov(porcentaje ~ Mes_Zona, data = EsponjaReplica)
+summary(anova)
+TUKEY <- TukeyHSD(anova)
+
+
+generate_label_df <- function(TUKEY, variable){
+ 
+     # Extract labels and factor levels from Tukey post-hoc 
+     Tukey.levels <- TUKEY[[1]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     
+     #I need to put the labels in the same order as in the boxplot :
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+     }
+ 
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Replicatotal$Major_Category")
+ 
+ 
+# A panel of colors to draw each group with the same color :
+my_colors <- c( 
+  rgb(166, 206, 227,maxColorValue = 255), #A6CEE3
+  rgb(242,104,34,maxColorValue = 255), #1F78B4" 
+  rgb(178, 223, 138,maxColorValue = 255),#B2DF8A
+  rgb(51, 160, 44,maxColorValue = 255),#33A02C
+  rgb(202, 178, 214,maxColorValue = 255),#CAB2D6
+  rgb(106, 61, 154,maxColorValue = 255))#6A3D9A)
+ 
+
+#print(tukey)
+#cld <- multcompLetters4(anova, tukey)
+#print(cld)
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(EsponjaReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de esponjas por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+ 
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox
+```
+#x=LABELS[,2],y=max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje)
+
+#text(x=LABELS[,2],y=max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje),labels=LABELS[,1],col=my_colors)
+
+
+
+```{r}
+#Grafica ,esponjas krustl
+names<-unique(MacroalgaReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-EsponjaReplica[EsponjaReplica$Mes_Zona==i | EsponjaReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+# Apply the function on my dataset
+LABELS <- generate_label_Krus(pvals , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(EsponjaReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de esponjas por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox 
+```
+
+```{r}
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+names<-unique(EsponjaReplica$Mes_Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-EsponjaReplica[EsponjaReplica$Mes_Zona==i | EsponjaReplica$Mes_Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes_Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes_Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Mes_Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+LABELS <- generate_label_Krus(pvals , "EsponjaReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(EsponjaReplica, aes(x = Mes_Zona, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes_Zona)) +
+  ggtitle("Cobertura de esponjas por mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+
+gbox 
+```
+
+
+
+#Prueba estaditicas
+```{r}
+#library(RColorBrewer)
+#brewer.pal(n = 6, name = "Paired")
+
+
+
+
+
+library(multcompView)
+anova <- aov(porcentaje ~ Major_Category, data = Replicatotal)
+summary(anova)
+TUKEY<- TukeyHSD(x=anova)
+
+print(TUKEY)
+#cld <- multcompLetters4(anova, TUKEY)
+#print(cld)
+
+generate_label_df <- function(TUKEY, variable){
+ 
+     # Extract labels and factor levels from Tukey post-hoc 
+     Tukey.levels <- TUKEY[[1]][,4]
+     Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+     
+     #I need to put the labels in the same order as in the boxplot :
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+     }
+ 
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Replicatotal$Major_Category")
+ 
+ 
+# A panel of colors to draw each group with the same color :
+my_colors <- c( 
+  rgb(166, 206, 227,maxColorValue = 255), #A6CEE3
+  rgb(242,104,34,maxColorValue = 255), #1F78B4" 
+  rgb(178, 223, 138,maxColorValue = 255),#B2DF8A
+  rgb(51, 160, 44,maxColorValue = 255),#33A02C
+  rgb(202, 178, 214,maxColorValue = 255),#CAB2D6
+  rgb(106, 61, 154,maxColorValue = 255))#6A3D9A)
+ 
+
+ 
+
+
+Cambio_nombre<-c("Coral","Dead coral with Algae","Diseased Coral", "Gorgonians", "Macroalgae", "Other live", "Sand, pavement, rubble", "Sponges", "Tape, wand, shadow")
+Nombre_real<-c("Coral","Coral muerto","Coral enfermo", "Coral blando", "Macroalgas", "Otros animales", "Arena", "Esponjas", "Sombra, cuadrante PVC")
+
+
+for (i in 1:length(Nombre_real)){Replicatotal$Major_Category <- replace(Replicatotal$Major_Category, Replicatotal$Major_Category == Cambio_nombre[i], Nombre_real[i])}
+
+group.colors <- c(Febrero_Dentro ="#A6CEE3" ,Febrero_Fuera="#1F78B4", Julio_Dentro = "#B2DF8A" , Julio_Fuera = "#33A02C" , Octubre_Dentro = "#CAB2D6" , Octubre_Fuera="#6A3D9A")
+
+gbox<-ggplot(Replicatotal, aes(x = Major_Category, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura por mes") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = 55)+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = 55)+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = 55)+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = 55)+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = 55)+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = 55)+
+  annotate(geom="text",x=LABELS[,2][7], label=LABELS[,1][7], y = 55)+
+  annotate(geom="text",x=LABELS[,2][8], label=LABELS[,1][8], y = 55)+
+  annotate(geom="text",x=LABELS[,2][9], label=LABELS[,1][9], y = 55)
+gbox <- gbox + scale_x_discrete(limits = c("Coral","Coral muerto","Coral enfermo", "Coral blando", "Macroalgas", "Esponjas", "Otros animales", "Arena", "Sombra, cuadrante PVC"))
+gbox
+
+
+
+```
+```{r}
+library(ggsignif)
+library(gvlma)
+library(lmtest)
+library(ggpubr)
+```
+
+
+```{r}
+plot(anova)
+bptest(anova)
+shapiro.test(anova$residuals)#$residuals
+dwtest(anova)
+
+bartlett.test(porcentaje ~ Major_Category, data = Replicatotal) 
+levene
+kruskal.test(porcentaje ~ Major_Category, data = Replicatotal)                    
+```
+
+```{r}
+kruskal.test(porcentaje ~ Major_Category, data = Replicatotal)
+``` 
+```{r}
+library(MASS)
+library(car)
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+     }
+ 
+## Esta es el procesamiento de datos transformndolos con box cox para que sea lo mas homocedastico posible y usar kruskall wallis y levene que no asumen normalidad de los datos.
+
+names<-unique(Replicatotal$Major_Category)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-Replicatotal[Replicatotal$Major_Category==i | Replicatotal$Major_Category ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Major_Category)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Major_Category,data=filtered)$p.value
+  lev<-leveneTest(y~Major_Category,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+# Apply the function on my dataset
+LABELS <- generate_label_Krus(pvals , "Replicatotal$Major_Category")
+
+
+
+
+
+
+my_colors <- c( 
+  rgb(166, 206, 227,maxColorValue = 255), #A6CEE3
+  rgb(242,104,34,maxColorValue = 255), #1F78B4" 
+  rgb(178, 223, 138,maxColorValue = 255),#B2DF8A
+  rgb(51, 160, 44,maxColorValue = 255),#33A02C
+  rgb(202, 178, 214,maxColorValue = 255),#CAB2D6
+  rgb(106, 61, 154,maxColorValue = 255))#6A3D9A)
+ 
+
+ 
+
+
+Cambio_nombre<-c("Coral","Dead coral with Algae","Diseased Coral", "Gorgonians", "Macroalgae", "Other live", "Sand, pavement, rubble", "Sponges", "Tape, wand, shadow")
+Nombre_real<-c("Coral","Coral muerto","Coral enfermo", "Coral blando", "Macroalgas", "Otros animales", "Arena", "Esponjas", "Sombra, cuadrante PVC")
+
+
+for (i in 1:length(Nombre_real)){Replicatotal$Major_Category <- replace(Replicatotal$Major_Category, Replicatotal$Major_Category == Cambio_nombre[i], Nombre_real[i])}
+
+group.colors <- c(Febrero_Dentro ="#9ECAE1" ,Febrero_Fuera="#084594", Julio_Dentro = "#9ECAE1" , Julio_Fuera = "#084594" , Octubre_Dentro = "#9ECAE1" , Octubre_Fuera="#084594")
+
+gbox<-ggplot(Replicatotal, aes(x = Major_Category, y = porcentaje, fill = Mes_Zona)) +
+  stat_boxplot(geom ='errorbar')+
+  geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura por mes") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = 55)+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = 55)+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = 55)+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = 55)+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = 55)+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = 55)+
+  annotate(geom="text",x=LABELS[,2][7], label=LABELS[,1][7], y = 55)+
+  annotate(geom="text",x=LABELS[,2][8], label=LABELS[,1][8], y = 55)+
+  annotate(geom="text",x=LABELS[,2][9], label=LABELS[,1][9], y = 55)
+gbox <- gbox + scale_x_discrete(limits = c("Coral","Coral muerto","Coral enfermo", "Coral blando", "Macroalgas", "Esponjas", "Otros animales", "Arena", "Sombra, cuadrante PVC"))  
+gbox
+```
+```{r}
+library("RColorBrewer")
+library(MASS)
+library(car)
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+     }
+ 
+## Esta es el procesamiento de datos transformndolos con box cox para que sea lo mas homocedastico posible y usar kruskall wallis y levene que no asumen normalidad de los datos.
+
+names<-unique(Replicatotal$Major_Category)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-Replicatotal[Replicatotal$Major_Category==i | Replicatotal$Major_Category ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Major_Category)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Major_Category,data=filtered)$p.value
+  lev<-leveneTest(y~Major_Category,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvals<-data.frame(name1,name2,pval,levene)
+
+pvals$name<-paste0(pvals$name1,"-",pvals$name2)
+rownames(pvals) <- pvals$name
+
+# Apply the function on my dataset
+LABELS <- generate_label_Krus(pvals , "Replicatotal$Major_Category")
+
+
+
+
+
+
+my_colors <- c( 
+  rgb(166, 206, 227,maxColorValue = 255), #A6CEE3
+  rgb(242,104,34,maxColorValue = 255), #1F78B4" 
+  rgb(178, 223, 138,maxColorValue = 255),#B2DF8A
+  rgb(51, 160, 44,maxColorValue = 255),#33A02C
+  rgb(202, 178, 214,maxColorValue = 255),#CAB2D6
+  rgb(106, 61, 154,maxColorValue = 255))#6A3D9A)
+ 
+
+ 
+
+
+Cambio_nombre<-c("Coral","Dead coral with Algae","Diseased Coral", "Gorgonians", "Macroalgae", "Other live", "Sand, pavement, rubble", "Sponges", "Tape, wand, shadow")
+Nombre_real<-c("Coral","Coral muerto","Coral enfermo", "Coral blando", "Macroalgas", "Otros animales", "Arena", "Esponjas", "Sombra, cuadrante PVC")
+
+
+for (i in 1:length(Nombre_real)){Replicatotal$Major_Category <- replace(Replicatotal$Major_Category, Replicatotal$Major_Category == Cambio_nombre[i], Nombre_real[i])}
+
+group.colors <- c(Febrero_Dentro ="#9ECAE1" ,Febrero_Fuera="#084594", Julio_Dentro = "#9ECAE1" , Julio_Fuera = "#084594" , Octubre_Dentro = "#9ECAE1" , Octubre_Fuera="#084594")
+
+gbox<-ggplot(Replicatotal, aes(x = Major_Category, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura por mes") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = 55)+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = 55)+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = 55)+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = 55)+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = 55)+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = 55)+
+  annotate(geom="text",x=LABELS[,2][7], label=LABELS[,1][7], y = 55)+
+  annotate(geom="text",x=LABELS[,2][8], label=LABELS[,1][8], y = 55)+
+  annotate(geom="text",x=LABELS[,2][9], label=LABELS[,1][9], y = 55)
+gbox <- gbox + scale_x_discrete(limits = c("Coral","Coral muerto","Coral enfermo", "Coral blando", "Macroalgas", "Esponjas", "Otros animales", "Arena", "Sombra, cuadrante PVC"))  
+gbox
+
+```
+```{r}
+
+```
+
+
+
+```{r}
+
+
+
+generate_label_Krus <- function(pvals, variable){
+     # Extract labels and factor levels from Tukey post-hoc 
+     TUKEy <- setNames(pvals$pval, pvals$name)
+     Tukey.labels <- data.frame(multcompLetters(TUKEy)['Letters'])
+     Tukey.labels$treatment=rownames(Tukey.labels)
+     Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+     return(Tukey.labels)
+}
+
+
+Replicatotal<-as.data.frame(Replicatotal)
+Rep1<-Replicatotal[Replicatotal$Sitio == "Sitio 1" | Replicatotal$Sitio== "Sitio 2" ,]
+Rep1$Espacio<-c(rep("Dentro",length(Rep1$Sitio)))
+Rep2<-Replicatotal[Replicatotal$Sitio == "Sitio 3" | Replicatotal$Sitio== "Sitio 4" ,]
+Rep2$Espacio<-c(rep("Fuera",length(Rep2$Sitio)))
+
+Reptot<-rbind(Rep1,Rep2)
+
+boxplot(porcentaje~Espacio,data=Reptot)
+av<-aov(porcentaje~Espacio,data=Reptot)
+summary(av)
+
+library(tidyr)
+library(stringr)
+
+Reptot$Mes<-str_split_fixed(Reptot$Mes_Zona, "_", 2)[,1]
+
+boxplot(porcentaje~Mes,data=Reptot)
+av<-aov(porcentaje~Mes,data=Reptot)
+summary(av)
+
+
+
+
+group.colors <- c(Febrero_Dentro ="#9ECAE1" ,Febrero_Fuera="#084594", Julio_Dentro = "#9ECAE1" , Julio_Fuera = "#084594" , Octubre_Dentro = "#9ECAE1" , Octubre_Fuera="#084594")
+
+gbox<-ggplot(Replicatotal, aes(x = Major_Category, y = porcentaje, fill = Mes_Zona)) +
+  geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura por mes-zona") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = 55)+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = 55)+
+  annotate(geom="text",x=LABELS[,2][3], label=LABELS[,1][3], y = 55)+
+  annotate(geom="text",x=LABELS[,2][4], label=LABELS[,1][4], y = 55)+
+  annotate(geom="text",x=LABELS[,2][5], label=LABELS[,1][5], y = 55)+
+  annotate(geom="text",x=LABELS[,2][6], label=LABELS[,1][6], y = 55)+
+  annotate(geom="text",x=LABELS[,2][7], label=LABELS[,1][7], y = 55)+
+  annotate(geom="text",x=LABELS[,2][8], label=LABELS[,1][8], y = 55)+
+  annotate(geom="text",x=LABELS[,2][9], label=LABELS[,1][9], y = 55)
+ 
+gbox
+
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+
+```{r}
+#cobertura coal vivo
+CoralReplica$Mes<-str_split_fixed(CoralReplica$Mes_Zona, "_", 2)[,1]
+CoralReplica$Zona<-str_split_fixed(CoralReplica$Mes_Zona, "_", 2)[,2]
+
+names<-unique(CoralReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralReplica[CoralReplica$Mes==i | CoralReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes,data=filtered)$p.value
+  lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMES<-data.frame(name1,name2,pval,levene)
+
+pvalsMES$name<-paste0(pvalsMES$name1,"-",pvalsMES$name2)
+rownames(pvalsMES) <- pvalsMES$name
+
+LABELSMES <- generate_label_Krus(pvalsMES , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Febrero ="#A6CEE3" , Julio= "#B2DF8A" , Octubre = "#CAB2D6")
+
+gbox<-ggplot(CoralReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura coralina por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(CoralReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralReplica[CoralReplica$Zona==i | CoralReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONA<-data.frame(name1,name2,pval,levene)
+
+pvalsZONA$name<-paste0(pvalsZONA$name1,"-",pvalsZONA$name2)
+rownames(pvalsZONA) <- pvalsZONA$name
+
+LABELS <- generate_label_Krus(pvalsZONA , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#A6CEE3" , Fuera= "#B2DF8A")
+
+gbox<-ggplot(CoralReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura coralina por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#A6CEE3" , Julio= "#B2DF8A" , Octubre = "#CAB2D6")
+gbox<-ggplot(CoralReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura coralina por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(62,56,62), label = c(paste0("Kruskal p = ",round(pvalsMES$pval[1], digits = 5)),paste0("Kruskal p = ",round(pvalsMES$pval[2], digits = 5)),paste0("Kruskal p = ",round(pvalsMES$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#A6CEE3" , Fuera= "#B2DF8A")
+gbox<-ggplot(CoralReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura coralina por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(60), label = c(paste0("Kruskal p = ",round(pvalsZONA$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+```
+```{r}
+#cobertura coral muerto
+CoralMuertoReplica$Mes<-str_split_fixed(CoralMuertoReplica$Mes_Zona, "_", 2)[,1]
+CoralMuertoReplica$Zona<-str_split_fixed(CoralMuertoReplica$Mes_Zona, "_", 2)[,2]
+
+names<-unique(CoralMuertoReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralMuertoReplica[CoralMuertoReplica$Mes==i | CoralMuertoReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes,data=filtered)$p.value
+  lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMES<-data.frame(name1,name2,pval,levene)
+
+pvalsMES$name<-paste0(pvalsMES$name1,"-",pvalsMES$name2)
+rownames(pvalsMES) <- pvalsMES$name
+
+LABELSMES <- generate_label_Krus(pvalsMES , "CoralMuertoReplica$Mes_Zona")
+
+group.colors <- c(Febrero ="#A6CEE3" , Julio= "#B2DF8A" , Octubre = "#CAB2D6")
+
+gbox<-ggplot(CoralMuertoReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de coral muerto por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(CoralMuertoReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralMuertoReplica[CoralMuertoReplica$Zona==i | CoralMuertoReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONA<-data.frame(name1,name2,pval,levene)
+
+pvalsZONA$name<-paste0(pvalsZONA$name1,"-",pvalsZONA$name2)
+rownames(pvalsZONA) <- pvalsZONA$name
+
+LABELS <- generate_label_Krus(pvalsZONA , "CoralMuertoReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#A6CEE3" , Fuera= "#B2DF8A")
+
+gbox<-ggplot(CoralMuertoReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de coral muerto por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#A6CEE3" , Julio= "#B2DF8A" , Octubre = "#CAB2D6")
+gbox<-ggplot(CoralMuertoReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de coral muerto por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(50,45,50), label = c(paste0("Kruskal p = ",round(pvalsMES$pval[1], digits = 5)),paste0("Kruskal p = ",round(pvalsMES$pval[2], digits = 5)),paste0("Kruskal p = ",round(pvalsMES$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#A6CEE3" , Fuera= "#B2DF8A")
+gbox<-ggplot(CoralMuertoReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de coral muerto por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(45), label = c(paste0("Kruskal p = ",round(pvalsZONA$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+```
+```{r}
+#macroalgas
+MacroalgaReplica$Mes<-str_split_fixed(MacroalgaReplica$Mes_Zona, "_", 2)[,1]
+MacroalgaReplica$Zona<-str_split_fixed(MacroalgaReplica$Mes_Zona, "_", 2)[,2]
+
+names<-unique(MacroalgaReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-MacroalgaReplica[MacroalgaReplica$Mes==i | MacroalgaReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes,data=filtered)$p.value
+  lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMES<-data.frame(name1,name2,pval,levene)
+
+pvalsMES$name<-paste0(pvalsMES$name1,"-",pvalsMES$name2)
+rownames(pvalsMES) <- pvalsMES$name
+
+LABELSMES <- generate_label_Krus(pvalsMES , "MacroalgaReplica$Mes_Zona")
+
+group.colors <- c(Febrero ="#A6CEE3" , Julio= "#B2DF8A" , Octubre = "#CAB2D6")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de macroalgas por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(MacroalgaReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-MacroalgaReplica[MacroalgaReplica$Zona==i | MacroalgaReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONA<-data.frame(name1,name2,pval,levene)
+
+pvalsZONA$name<-paste0(pvalsZONA$name1,"-",pvalsZONA$name2)
+rownames(pvalsZONA) <- pvalsZONA$name
+
+LABELS <- generate_label_Krus(pvalsZONA , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#A6CEE3" , Fuera= "#B2DF8A")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de macroalgas por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#A6CEE3" , Julio= "#B2DF8A" , Octubre = "#CAB2D6")
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de macroalgas por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(40,35,40), label = c(paste0("Kruskal p = ",round(pvalsMES$pval[1], digits = 5)),paste0("Kruskal p = ",round(pvalsMES$pval[2], digits = 5)),paste0("Kruskal p = ",round(pvalsMES$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#A6CEE3" , Fuera= "#B2DF8A")
+gbox<-ggplot(MacroalgaReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de macroalgas por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(40), label = c(paste0("Kruskal p = ",round(pvalsZONA$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+```
+```{r}
+#Enfermos
+CoralEnfermosReplica$Mes<-str_split_fixed(CoralEnfermosReplica$Mes_Zona, "_", 2)[,1]
+CoralEnfermosReplica$Zona<-str_split_fixed(CoralEnfermosReplica$Mes_Zona, "_", 2)[,2]
+
+names<-unique(CoralEnfermosReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralEnfermosReplica[CoralEnfermosReplica$Mes==i | CoralEnfermosReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes,data=filtered)$p.value
+  lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMES<-data.frame(name1,name2,pval,levene)
+
+pvalsMES$name<-paste0(pvalsMES$name1,"-",pvalsMES$name2)
+rownames(pvalsMES) <- pvalsMES$name
+
+LABELSMES <- generate_label_Krus(pvalsMES , "CoralEnfermosReplica$Mes_Zona")
+
+group.colors <- c(Febrero ="#A6CEE3" , Julio= "#B2DF8A" , Octubre = "#CAB2D6")
+
+gbox<-ggplot(CoralEnfermosReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de corales enfermos por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(CoralEnfermosReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralEnfermosReplica[CoralEnfermosReplica$Zona==i | CoralEnfermosReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Zona,data=filtered)$p.value
+  lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONA<-data.frame(name1,name2,pval,levene)
+
+pvalsZONA$name<-paste0(pvalsZONA$name1,"-",pvalsZONA$name2)
+rownames(pvalsZONA) <- pvalsZONA$name
+
+LABELS <- generate_label_Krus(pvalsZONA , "CoralEnfermosReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#A6CEE3" , Fuera= "#B2DF8A")
+
+gbox<-ggplot(CoralEnfermosReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de corales enfermos por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#A6CEE3" , Julio= "#B2DF8A" , Octubre = "#CAB2D6")
+gbox<-ggplot(CoralEnfermosReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de corales enfermos por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(8,7,8), label = c(paste0("Kruskal p = ",round(pvalsMES$pval[1], digits = 5)),paste0("Kruskal p = ",round(pvalsMES$pval[2], digits = 5)),paste0("Kruskal p = ",round(pvalsMES$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#A6CEE3" , Fuera= "#B2DF8A")
+gbox<-ggplot(CoralEnfermosReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de corales enfermos por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(7), label = c(paste0("Kruskal p = ",round(pvalsZONA$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+```
+
+```{r}
+##### Graficas Lizz
+
+
+Replicatotal<-as.data.frame(Replicatotal)
+#significacia mes_zona
+names<-unique(lizz$Major_Category)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-lizz[lizz$Major_Category==i | lizz$Major_Category ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Major_Category,data=filtered)$p.value
+  #lev<-leveneTest(y~Major_Category,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsCategory<-data.frame(name1,name2,pval)
+
+pvalsCategory$name<-paste0(pvalsCategory$name1,"-",pvalsCategory$name2)
+rownames(pvalsCategory) <- pvalsCategory$name
+
+#LABELSCAT <- generate_label_Krus(pvalsCategory , "CoralEnfermosReplica$Mes_Zona")
+
+group.colors <- c(Febrero_Dentro ="#9ECAE1" ,Febrero_Fuera="#084594", Julio_Dentro = "#9ECAE1" , Julio_Fuera = "#084594" , Octubre_Dentro = "#9ECAE1" , Octubre_Fuera="#084594")
+p<-ggplot(lizz, aes(x = Major_Category, y = porcentaje, fill = Mes_Zona)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por mes_zona") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+p
+
+#p<-p +annotate(geom="text",x=LABELSCAT[,2][1], label=LABELSCAT[,1][1], y = max(p$data$porcentaje)+0.1*max(p$data$porcentaje))+
+#  annotate(geom="text",x=LABELSCAT[,2][2], label=LABELSCAT[,1][2], y = max(p$data$porcentaje)+0.1*max(p$data$porcentaje))+
+#  annotate(geom="text",x=LABELSCAT[,2][3], label=LABELSCAT[,1][3], y = max(p$data$porcentaje)+0.1*max(p$data$porcentaje))
+  
+p
+
+
+
+
+lizzinterest<-c("Macroalgas","Coral","Coral muerto")
+lizz<-Replicatotal[Replicatotal$Major_Category %in% lizzinterest,]
+
+
+lizz$Mes<-str_split_fixed(lizz$Mes_Zona, "_", 2)[,1]
+lizz$Zona<-str_split_fixed(lizz$Mes_Zona, "_", 2)[,2]
+
+
+
+
+
+
+names<-unique(lizz$Major_Category)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-lizz[lizz$Major_Category==i | lizz$Major_Category ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Major_Category,data=filtered)$p.value
+  #lev<-leveneTest(y~Major_Category,data=filtered)$Pr[1]
+ # levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZ<-data.frame(name1,name2,pval)
+
+pvalsZ$name<-paste0(pvalsZ$name1,"-",pvalsZ$name2)
+rownames(pvalsZ) <- pvalsZ$name
+
+LABELSZ <- generate_label_Krus(pvalsZ , "CoralEnfermosReplica$Mes_Zona")
+
+
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+
+g<-ggplot(lizz, aes(x = Major_Category, y = porcentaje, fill = Mes)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por mes") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+
+#g<-g +annotate(geom="text",x=LABELSZ[,2][1], label=LABELSZ[,1][1], y = max(g$data$porcentaje)+0.1*max(g$data$porcentaje))+
+#  annotate(geom="text",x=LABELSZ[,2][2], label=LABELSZ[,1][2], y = max(g$data$porcentaje)+0.1*max(g$data$porcentaje))+
+#  annotate(geom="text",x=LABELSZ[,2][3], label=LABELSZ[,1][3], y = max(g$data$porcentaje)+0.1*max(g$data$porcentaje))+
+#  annotate(geom="text",x=LABELSZ[,2][4], label=LABELSZ[,1][4], y = max(g$data$porcentaje)+0.1*max(g$data$porcentaje))+
+#  annotate(geom="text",x=LABELSZ[,2][5], label=LABELSZ[,1][5], y = max(g$data$porcentaje)+0.1*max(g$data$porcentaje))+
+ # annotate(geom="text",x=LABELSZ[,2][6], label=LABELSZ[,1][6], y = max(g$data$porcentaje)+0.1*max(g$data$porcentaje))
+  
+
+g
+
+
+names<-unique(CoralEnfermosReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralEnfermosReplica[CoralEnfermosReplica$Mes==i | CoralEnfermosReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  kru<-kruskal.test(y~Mes,data=filtered)$p.value
+  #lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMES<-data.frame(name1,name2,pval,levene)
+
+pvalsMES$name<-paste0(pvalsMES$name1,"-",pvalsMES$name2)
+rownames(pvalsMES) <- pvalsMES$name
+
+LABELSMES <- generate_label_Krus(pvalsMES , "CoralEnfermosReplica$Mes_Zona")
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+p<-ggplot(lizz, aes(x = Major_Category, y = porcentaje, fill = Zona)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por zona") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+p
+
+
+```
+
+```{r}
+ 
+```
+
+
+
+```{r}
+
+
+##########    MDS AND PCAAAAAA
+
+
+
+# Merge reptot with Sanbernardo on all of the columns that have environment measurements
+Reptot<-as.data.frame(Reptot)
+
+SanB2<-as.data.frame(San_Bernardo[ , c("Profundidad (m)","Temperatura (°C)","pH","Transparencia (m)","Salinidad (psu)","Sitio","Mes")])
+
+
+
+
+#Getting the unique values
+SanB3<-SanB2%>%group_by_all%>%count  
+
+reptotM<-merge(Reptot,SanB3,by.x =c("Sitio","Mes"),by.y=c("Sitio","Mes"))
+
+reptotM<-reptotM[reptotM$n.y!=1,]
+
+
+# filter on Coral, Coral Muerto, macroalgas, Coral enfermo on those new variables and time and  place
+
+old<-c("44740.0")
+new<-c(28.6)
+
+reptotM$`Salinidad (psu)` <- replace(reptotM$`Salinidad (psu)`, reptotM$`Salinidad (psu)` == old, new)
+
+c("Profundidad (m)","Temperatura (°C)","pH","Transparencia (m)","Salinidad (psu)")
+  
+reptotM$`Profundidad (m)` <- as.numeric(as.character(reptotM$`Profundidad (m)`))
+reptotM$`Temperatura (°C)` <- as.numeric(as.character(reptotM$`Temperatura (°C)`))
+reptotM$pH <- as.numeric(as.character(reptotM$pH))
+reptotM$`Salinidad (psu)` <- as.numeric(as.character(reptotM$`Salinidad (psu)`))
+reptotM$`Transparencia (m)` <- as.numeric(as.character(reptotM$`Transparencia (m)`))
+reptotM$Zona<-str_split_fixed(reptotM$Mes_Zona, "_", 2)[,2]
+
+#### Now the PCA of the general
+
+reptotMCoral <- reptotM %>% filter(`Major_Category` == "Coral" )
+
+
+c("Sitio","Mes")
+
+reptotnum<-reptotMCoral[ , c("Profundidad (m)","Temperatura (°C)","pH","Transparencia (m)","Salinidad (psu)","porcentaje")]
+
+
+### Plot MDS graphh
+
+
+library(MASS)
+d <- dist(reptotnum) # euclidean distances between the rows
+fit <- isoMDS(d, k=2) # k is the number of dim
+fit # view results
+
+# plot solution
+x <- fit$points[,1]
+y <- fit$points[,2]
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",
+  main="Nonmetric MDS", type="n")
+text(x, y, labels = row.names(reptotnum), cex=.7)
+
+
+
+
+
+
+############PCAAAAAAAAA
+library(FactoMineR)
+library(factoextra)
+
+
+#datos.nci <- scale(reptotnum, center = TRUE, scale = TRUE)
+pca_nci <- prcomp(reptotnum, scale = TRUE)
+summary(pca_nci)
+fviz_contrib(pca_nci, choice = "var", axes = 1, top = 10)
+
+```
+
+```{r}
+library(ISLR)
+names(NCI60)
+
+
+
+#a<-NCI60
+#head(a)
+#head(a)[, 1:6]
+#datos_nci <- NCI60$data
+#dim(datos_nci)
+#head(datos_nci)
+
+#14 labels
+```
+
+```{r}
+#write.csv(pvals,"\\Users\\Felipe\\Desktop\\Datos R\\pvals_macro.csv", row.names = FALSE)
+
+#data(wine)
+#X = wine[,4:21]
+#X=IniTransform(X)
+#D = DistContinuous (X)
+#perwine=PERMANOVA(D, wine$Group)
+#perwine
+#C = matrix(c(1, 1, -1, 1, 1, -1, 1, 1, 1, -1, -1, 1), nrow=3, byrow=TRUE)
+#rownames(C)=c("C1", "C2", "C3")
+#colnames(C)=levels(wine$Group)
+#effects=factor(c(1,2,3))
+#levels(effects)=c("Origin", "Year", "Interaction")
+#permay=PERMANOVA(D, wine$Group, C=C, Effects=effects, CoordPrinc = TRUE)
+#summary(permay)
+```
+
+```{r}
+
+#With permanova pacage the function  to apply permanova
+permanov <- function(database,namae,groupp,Unique=TRUE){
+  repps<-database[ , namae]
+  if (Unique==FALSE){# Si hay mas de una variable
+  X=IniTransform(repps)# Esto transforma los datos para cuando hay mas de uno
+  D = DistContinuous (X)
+  }
+  D = DistContinuous (repps)
+  groups<-factor(groupp)
+  percat=PERMANOVA(D, groups)
+  return(percat)
+}
+pvalueget<-function(percat){
+  return(percat$pvalue)
+}
+namae<-c("porcentaje")
+groupp<-reptotM$Major_Category
+result<-pvalueget(permanov(reptotM,namae,groupp))
+
+```
+
+```{r}
+summary(result)
+```
+
+
+```{r}
+
+#### PCoA and MDS 
+library(vegan)
+library(FactoMineR)
+library(factoextra)
+
+permaPCA <- function(basedat,namai,groupi){ # function that retirns the permaPCA and plots the PCA and MDS
+repps<-basedat[ ,namai]
+repps<-as.data.frame(repps)
+groups<-factor(groupi)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+
+dispersion<-betadisper(repps3, group=groups)
+permutest(dispersion)
+plot(dispersion, hull=FALSE, ellipse=TRUE) ##sd ellipse
+
+
+birdMDS<-metaMDS(repps2, distance="bray", k=2, trymax=35, autotransform=TRUE) ##k is the number of dimensions
+birdMDS ##metaMDS takes eaither a distance matrix or your community matrix (then requires method for 'distance=')
+
+stressplot(birdMDS)
+
+
+NMDS1 <- birdMDS$points[,1] ##also found using scores(birdMDS)
+NMDS2 <- birdMDS$points[,2]
+bird.plot<-cbind(basedat, NMDS1, NMDS2)
+p<-ggplot(bird.plot, aes(NMDS1, NMDS2, color=groups))+
+  geom_point(position=position_jitter(.1), shape=3)+##separates overlapping points
+  stat_ellipse(type='t',size =1)+ ##draws 95% confidence interval ellipses
+  theme_minimal()
+plot(p)
+
+fit<-envfit(birdMDS, repps2)
+arrow<-data.frame(fit$vectors$arrows,R = fit$vectors$r, P = fit$vectors$pvals)
+arrow$FG <- rownames(arrow)
+arrow.p<-filter(arrow, P <= 0.05)
+
+d<-ggplot(data=bird.plot, aes(NMDS1, NMDS2))+
+  geom_point(data=bird.plot, aes(NMDS1, NMDS2, color=groups),position=position_jitter(.1))+##separates overlapping points
+  stat_ellipse(aes(fill=groups), alpha=.2,type='t',size =1, geom="polygon")+ ##changes shading on ellipses
+  theme_minimal()+
+  geom_segment(data=arrow.p, aes(x=0, y=0, xend=NMDS1/4, yend=NMDS2/4, label=FG, lty=FG), arrow=arrow(length=unit(.2, "cm")*arrow.p$R))##add arrows (scaled by R-squared value) " had .2 cm
+ #ylim(c(-0.25, 0.25))+
+ #xlim(c(-0.3, 0.3))
+
+plot(d)
+
+return(summary(divcpce))
+
+}
+
+
+```
+
+
+
+
+
+```{r}
+#PermaPCA prueba por si no sirve la función del chunck de abajo
+
+namae<- c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)","porcentaje")
+groupp<-reptotM$Major_Category
+#permaPCA(reptotM,namae,groupp)
+
+repps<-reptotM[ ,namae]
+groups<-factor(groupp)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+dispersion<-betadisper(repps3, group=groups)
+permutest(dispersion)
+plot(dispersion, hull=FALSE, ellipse=TRUE) ##sd ellipse
+
+
+birdMDS<-metaMDS(repps2, distance="bray", k=2, trymax=35, autotransform=TRUE) ##k is the number of dimensions
+birdMDS ##metaMDS takes eaither a distance matrix or your community matrix (then requires method for 'distance=')
+
+stressplot(birdMDS)
+
+
+NMDS1 <- birdMDS$points[,1] ##also found using scores(birdMDS)
+NMDS2 <- birdMDS$points[,2]
+bird.plot<-cbind(reptotM, NMDS1, NMDS2)
+p<-ggplot(bird.plot, aes(NMDS1, NMDS2, color=groups))+
+  geom_point(position=position_jitter(.1), shape=3)+##separates overlapping points
+  stat_ellipse(type='t',size =1)+ ##draws 95% confidence interval ellipses
+  theme_minimal()
+plot(p)
+
+fit<-envfit(birdMDS, repps2)
+arrow<-data.frame(fit$vectors$arrows,R = fit$vectors$r, P = fit$vectors$pvals)
+arrow$FG <- rownames(arrow)
+arrow.p<-filter(arrow, P <= 0.05)
+
+d<-ggplot(data=bird.plot, aes(NMDS1, NMDS2))+
+  geom_point(data=bird.plot, aes(NMDS1, NMDS2, color=groups),position=position_jitter(.1))+##separates overlapping points
+  stat_ellipse(aes(fill=groups), alpha=.2,type='t',size =1, geom="polygon")+ ##changes shading on ellipses
+  theme_minimal()+
+  geom_segment(data=arrow.p, aes(x=0, y=0, xend=NMDS1/4, yend=NMDS2/4, label=FG, lty=FG), arrow=arrow(length=unit(.2, "cm")*arrow.p$R))##add arrows (scaled by R-squared value) " had .2 cm
+ #ylim(c(-0.25, 0.25))+
+ #xlim(c(-0.3, 0.3))
+
+plot(d)
+
+
+
+```
+
+```{r}
+namae<- c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)","porcentaje")
+groupp<-reptotM$Major_Category
+permaPCA(reptotM,namae,groupp)
+```
+
+
+```{r}
+#cobertura coral vivo con permanova sin vaiables fisicoquimicas
+
+CoralReplica<-reptotM[reptotM$Major_Category=="Coral",]
+
+
+names<-unique(CoralReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralReplica[CoralReplica$Mes==i | CoralReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  namae<-c("porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Mes))
+  lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMESCoralperma<-data.frame(name1,name2,pval,levene)
+
+pvalsMESCoralperma$name<-paste0(pvalsMESCoralperma$name1,"-",pvalsMESCoralperma$name2)
+rownames(pvalsMESCoralperma) <- pvalsMESCoralperma$name
+
+LABELSMES <- generate_label_Krus(pvalsMESCoralperma , "NANANANAANNBATMANNN")
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+
+gbox<-ggplot(CoralReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura coralina por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(CoralReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralReplica[CoralReplica$Zona==i | CoralReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+
+  namae<-c("porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Zona))
+  #lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONACoralperma<-data.frame(name1,name2,pval,levene)
+
+pvalsZONACoralperma$name<-paste0(pvalsZONACoralperma$name1,"-",pvalsZONACoralperma$name2)
+
+
+LABELS <- generate_label_Krus(pvalsZONACoralperma , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+
+gbox<-ggplot(CoralReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura coralina por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+gbox<-ggplot(CoralReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura coralina por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(62,56,62), label = c(paste0("Permanova p = ",round(pvalsMESCoralperma$pval[1], digits = 5)),paste0("Permanova p = ",round(pvalsMESCoralperma$pval[2], digits = 5)),paste0("Permanova p = ",round(pvalsMESCoralperma$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+gbox<-ggplot(CoralReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura coralina por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(60), label = c(paste0("Permanova p = ",round(pvalsZONACoralperma$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Blues")
+gbox
+```
+
+
+
+
+
+
+```{r}
+#permanova coral vivo con variables fisicoquimicas 
+
+CoralReplica<-reptotM[reptotM$Major_Category=="Coral",]
+
+
+names<-unique(CoralReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralReplica[CoralReplica$Mes==i | CoralReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  namae<-c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)","porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Mes,FALSE))
+  #lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMESCoralpermaFIS<-data.frame(name1,name2,pval,levene)
+
+pvalsMESCoralpermaFIS$name<-paste0(pvalsMESCoralpermaFIS$name1,"-",pvalsMESCoralpermaFIS$name2)
+rownames(pvalsMESCoralpermaFIS) <- pvalsMESCoralpermaFIS$name
+
+LABELSMES <- generate_label_Krus(pvalsMESCoralpermaFIS , "NANANANAANNBATMANNN")
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+
+gbox<-ggplot(CoralReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura coralina por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(CoralReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralReplica[CoralReplica$Zona==i | CoralReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+
+  namae<-c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)","porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Zona,FALSE))
+  #lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONACoralpermaFIS<-data.frame(name1,name2,pval,levene)
+
+pvalsZONACoralpermaFIS$name<-paste0(pvalsZONACoralpermaFIS$name1,"-",pvalsZONACoralpermaFIS$name2)
+rownames(pvalsZONACoralpermaFIS) <- pvalsZONACoralpermaFIS$name
+
+LABELS <- generate_label_Krus(pvalsZONACoralpermaFIS , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+
+gbox<-ggplot(CoralReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura coralina por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+gbox<-ggplot(CoralReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura coralina por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(62,56,62), label = c(paste0("Permanova p = ",round(pvalsMESCoralpermaFIS$pval[1], digits = 5)),paste0("Permanova p = ",round(pvalsMESCoralpermaFIS$pval[2], digits = 5)),paste0("Permanova p = ",round(pvalsMESCoralpermaFIS$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+gbox<-ggplot(CoralReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura coralina por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(60), label = c(paste0("Permanova p = ",round(pvalsZONACoralpermaFIS$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Paired")
+gbox
+```
+
+
+
+
+
+
+```{r}
+#coral muerto permanova sin variables 
+library("RColorBrewer")
+library(MASS)
+CoralMuertoReplica<-reptotM[reptotM$Major_Category=="Coral muerto",]
+
+
+names<-unique(CoralMuertoReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralMuertoReplica[CoralMuertoReplica$Mes==i | CoralMuertoReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  namae<-c("porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Mes))
+  #lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMESCoralMuertoperma<-data.frame(name1,name2,pval,levene)
+
+pvalsMESCoralMuertoperma$name<-paste0(pvalsMESCoralMuertoperma$name1,"-",pvalsMESCoralMuertoperma$name2)
+rownames(pvalsMESCoralMuertoperma) <- pvalsMESCoralMuertoperma$name
+
+LABELSMES <- generate_label_Krus(pvalsMESCoralMuertoperma , "NANANANAANNBATMANNN")
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+
+gbox<-ggplot(CoralMuertoReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de coral muerto por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Blues")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(CoralMuertoReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralMuertoReplica[CoralMuertoReplica$Zona==i | CoralMuertoReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+
+  namae<-c("porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Zona))
+  #lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONACoralMuertoperma<-data.frame(name1,name2,pval,levene)
+
+pvalsZONACoralMuertoperma$name<-paste0(pvalsZONACoralMuertoperma$name1,"-",pvalsZONACoralMuertoperma$name2)
+rownames(pvalsZONACoralMuertoperma) <- pvalsZONACoralMuertoperma$name
+
+LABELS <- generate_label_Krus(pvalsZONACoralMuertoperma , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+
+gbox<-ggplot(CoralMuertoReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de coral muerto por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Blues")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+gbox<-ggplot(CoralMuertoReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de coral muerto por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(56,50,56), label = c(paste0("Permanova p = ",round(pvalsMESCoralMuertoperma$pval[1], digits = 5)),paste0("Permanova p = ",round(pvalsMESCoralMuertoperma$pval[2], digits = 5)),paste0("Permanova p = ",round(pvalsMESCoralMuertoperma$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+gbox<-ggplot(CoralMuertoReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de coral muerto por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(50), label = c(paste0("Permanova p = ",round(pvalsZONACoralMuertoperma$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Paired")
+gbox
+```
+
+```{r}
+#coral muerto permanova con variables
+CoralMuertoReplica<-reptotM[reptotM$Major_Category=="Coral",]
+
+
+names<-unique(CoralMuertoReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralMuertoReplica[CoralMuertoReplica$Mes==i | CoralMuertoReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  namae<-c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)","porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Mes,FALSE))
+  #lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMESCoralMuertopermaFIS<-data.frame(name1,name2,pval,levene)
+
+pvalsMESCoralMuertopermaFIS$name<-paste0(pvalsMESCoralMuertopermaFIS$name1,"-",pvalsMESCoralMuertopermaFIS$name2)
+rownames(pvalsMESCoralMuertopermaFIS) <- pvalsMESCoralMuertopermaFIS$name
+
+LABELSMES <- generate_label_Krus(pvalsMESCoralMuertopermaFIS , "NANANANAANNBATMANNN")
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+
+gbox<-ggplot(CoralReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura coralina por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(CoralMuertoReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-CoralMuertoReplica[CoralMuertoReplica$Zona==i | CoralMuertoReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+
+  namae<-c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)","porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Zona,FALSE))
+  #lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONACoralMuertopermaFIS<-data.frame(name1,name2,pval,levene)
+
+pvalsZONACoralMuertopermaFIS$name<-paste0(pvalsZONACoralMuertopermaFIS$name1,"-",pvalsZONACoralMuertopermaFIS$name2)
+rownames(pvalsZONACoralMuertopermaFIS) <- pvalsZONACoralMuertopermaFIS$name
+
+LABELS <- generate_label_Krus(pvalsZONACoralMuertopermaFIS , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+
+gbox<-ggplot(CoralMuertoReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de coral muerto por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+gbox<-ggplot(CoralMuertoReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de coral muerto por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(62,56,62), label = c(paste0("Permanova p = ",round(pvalsMESCoralMuertopermaFIS$pval[1], digits = 5)),paste0("Permanova p = ",round(pvalsMESCoralMuertopermaFIS$pval[2], digits = 5)),paste0("Permanova p = ",round(pvalsMESCoralMuertopermaFIS$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+gbox<-ggplot(CoralMuertoReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura coralina por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(60), label = c(paste0("Permanova p = ",round(pvalsZONACoralMuertopermaFIS$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Paired")
+gbox
+```
+
+
+```{r}
+# prueba permaPCA
+CoralReplica<-reptotM[reptotM$Major_Category=="Coral",]
+namae<- c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)")
+groupp<-CoralReplica$Mes
+#permaPCA(CoralReplica,namae1,groupp1)
+groupp2<-CoralReplica$Zona
+#permaPCA(CoralReplica,namae1,groupp2)
+groupp3<-CoralReplica$Mes_Zona
+#permaPCA(CoralReplica,namae1,groupp3)
+
+repps<-CoralReplica[ ,namae]
+groups<-factor(groupp)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+
+
+```
+```{r}
+CoralReplica<-reptotM[reptotM$Major_Category=="Coral",]
+namae1<- c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)")
+groupp1<-CoralReplica$Mes
+
+repps<-CoralReplica[ ,namae]
+repps<-as.data.frame(repps)
+groups<-factor(groupp)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+permaPCA(CoralReplica,namae1,groupp1)
+groupp2<-CoralReplica$Zona
+permaPCA(CoralReplica,namae1,groupp2)
+groupp3<-CoralReplica$Mes_Zona
+permaPCA(CoralReplica,namae1,groupp3)
+```
+
+```{r}
+
+CoralMuertoReplica<-reptotM[reptotM$Major_Category=="Coral muerto",]
+namae<- c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)")
+groupp<-CoralMuertoReplica$Mes
+
+repps<-CoralMuertoReplica[ ,namae]
+repps<-as.data.frame(repps)
+groups<-factor(groupp)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+permaPCA(CoralMuertoReplica,namae,groupp)
+groupp<-CoralMuertoReplica$Zona
+permaPCA(CoralMuertoReplica,namae,groupp)
+groupp<-CoralMuertoReplica$Mes_Zona
+permaPCA(CoralMuertoReplica,namae,groupp)
+
+
+
+
+```
+
+```{r}
+MacroalgaReplica<-reptotM[reptotM$Major_Category=="Macroalgas",]
+MacroalgaReplica<- as.data.frame(MacroalgaReplica)
+namae<- c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)")
+groupp<-MacroalgaReplica$Mes
+
+repps<-MacroalgaReplica[ ,namae]
+repps<-as.data.frame(repps)
+groups<-factor(groupp)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+permaPCA(MacroalgaReplica,namae,groupp)
+groupp<-MacroalgaReplica$Zona
+permaPCA(MacroalgaReplica,namae,groupp)
+groupp<-MacroalgaReplica$Mes_Zona
+permaPCA(MacroalgaReplica,namae,groupp)
+
+
+```
+
+```{r}
+CoralEnfermosReplica<-reptotM[reptotM$Major_Category=="Coral enfermo",]
+CoralEnfermosReplica<- as.data.frame(CoralEnfermosReplica)
+namae<- c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)")
+groupp<-CoralEnfermosReplica$Mes
+
+repps<-CoralEnfermosReplica[ ,namae]
+repps<-as.data.frame(repps)
+groups<-factor(groupp)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+permaPCA(CoralEnfermosReplica,namae,groupp)
+groupp<-CoralEnfermosReplica$Zona
+permaPCA(CoralEnfermosReplica,namae,groupp)
+groupp<-CoralEnfermosReplica$Mes_Zona
+permaPCA(CoralEnfermosReplica,namae,groupp)
+
+
+```
+```{r}
+
+```
+
+```{r}
+library(vegan)
+library(FactoMineR)
+library(factoextra)
+
+
+
+permaPCA_IMG <- function(basedat,namai,groupi){ # function that retirns the permaPCA and plots the PCA and MDS
+repps<-basedat[ ,namai]
+repps<-as.data.frame(repps)
+groups<-factor(groupi)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+
+dispersion<-betadisper(repps3, group=groups)
+permutest(dispersion)
+plot(dispersion, hull=FALSE, ellipse=TRUE) ##sd ellipse
+ggsave(filename="dispersion.jpg")
+
+
+birdMDS<-metaMDS(repps2, distance="bray", k=2, trymax=35, autotransform=TRUE) ##k is the number of dimensions
+birdMDS ##metaMDS takes eaither a distance matrix or your community matrix (then requires method for 'distance=')
+
+stressplot(birdMDS)
+
+
+NMDS1 <- birdMDS$points[,1] ##also found using scores(birdMDS)
+NMDS2 <- birdMDS$points[,2]
+bird.plot<-cbind(basedat, NMDS1, NMDS2)
+p<-ggplot(bird.plot, aes(NMDS1, NMDS2, color=groups))+
+  geom_point(position=position_jitter(.1), shape=3)+##separates overlapping points
+  stat_ellipse(type='t',size =1)+ ##draws 95% confidence interval ellipses
+  theme_minimal()
+plot(p)
+ggsave(filename="p.jpg", plot=p)
+
+fit<-envfit(birdMDS, repps2)
+arrow<-data.frame(fit$vectors$arrows,R = fit$vectors$r, P = fit$vectors$pvals)
+arrow$FG <- rownames(arrow)
+arrow.p<-filter(arrow, P <= 0.05)
+
+d<-ggplot(data=bird.plot, aes(NMDS1, NMDS2))+
+  geom_point(data=bird.plot, aes(NMDS1, NMDS2, color=groups),position=position_jitter(.1))+##separates overlapping points
+  stat_ellipse(aes(fill=groups), alpha=.2,type='t',size =1, geom="polygon")+ ##changes shading on ellipses
+  theme_minimal()+
+  geom_segment(data=arrow.p, aes(x=0, y=0, xend=NMDS1/4, yend=NMDS2/4, label=FG, lty=FG), arrow=arrow(length=unit(.2, "cm")*arrow.p$R))##add arrows (scaled by R-squared value) " had .2 cm
+ #ylim(c(-0.25, 0.25))+
+ #xlim(c(-0.3, 0.3))
+
+plot(d)
+ggsave(filename="d.jpg", plot=d)
+
+#img_d<-plot(d)
+#img_p<-plot(p)
+#img_un<-plot(dispersion, hull=FALSE, ellipse=TRUE)
+
+return(summary(divcpce))
+#return(list(img_d, img_p, img_un))
+
+}
+```
+
+```{r}
+CoralEnfermosReplica<-reptotM[reptotM$Major_Category=="Coral enfermo",]
+CoralEnfermosReplica<- as.data.frame(CoralEnfermosReplica)
+namae<- c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)")
+groupp<-CoralEnfermosReplica$Mes
+
+repps<-CoralEnfermosReplica[ ,namae]
+repps<-as.data.frame(repps)
+groups<-factor(groupp)
+repps2<-repps
+#repps<-sqrt(repps)# tranform the matrix
+repps3<-vegdist(repps, method='bray')# dissimilarity matrix
+X=IniTransform(repps)
+repps = DistContinuous (X)
+
+dat<-as.data.frame(repps$Data)
+divcpce<-adonis2(repps$Data~groups, data=dat, permutations = 999, method="bray")
+summary(divcpce)
+
+permaPCA_IMG(CoralEnfermosReplica,namae,groupp)
+groupp<-CoralEnfermosReplica$Zona
+permaPCA_IMG(CoralEnfermosReplica,namae,groupp)
+groupp<-CoralEnfermosReplica$Mes_Zona
+permaPCA_IMG(CoralEnfermosReplica,namae,groupp)
+
+
+
+
+#return(list(a,b,c))
+```
+
+
+```{r}
+#cobertura macroalgas permanova sin vaiables fisicoquimicas
+
+MacroalgaReplica<-reptotM[reptotM$Major_Category=="Macroalgas",]
+
+
+names<-unique(MacroalgaReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-MacroalgaReplica[MacroalgaReplica$Mes==i | MacroalgaReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  namae<-c("porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Mes))
+  #lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMESAlgasperma<-data.frame(name1,name2,pval,levene)
+
+pvalsMESAlgasperma$name<-paste0(pvalsMESAlgasperma$name1,"-",pvalsMESAlgasperma$name2)
+rownames(pvalsMESAlgasperma) <- pvalsMESAlgasperma$name
+
+LABELSMES <- generate_label_Krus(pvalsMESAlgasperma , "NANANANAANNBATMANNN")
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de macroalgas por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(MacroalgaReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-MacroalgaReplica[MacroalgaReplica$Zona==i | MacroalgaReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+
+  namae<-c("porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Zona))
+  #lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONAAlgasperma<-data.frame(name1,name2,pval,levene)
+
+pvalsZONAAlgasperma$name<-paste0(pvalsZONAAlgasperma$name1,"-",pvalsZONAAlgasperma$name2)
+rownames(pvalsZONAAlgasperma) <- pvalsZONAAlgasperma$name
+
+LABELS <- generate_label_Krus(pvalsZONAAlgasperma , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de macroalgas por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de macroalgas por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(45,40,45), label = c(paste0("Permanova p = ",round(pvalsMESAlgasperma$pval[1], digits = 5)),paste0("Permanova p = ",round(pvalsMESAlgasperma$pval[2], digits = 5)),paste0("Permanova p = ",round(pvalsMESAlgasperma$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+gbox<-ggplot(MacroalgaReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de macroalgas por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(40), label = c(paste0("Permanova p = ",round(pvalsZONAAlgasperma$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Blues")
+gbox
+```
+
+```{r}
+#macroalgas con variables 
+MacroalgaReplica<-reptotM[reptotM$Major_Category=="Macroalgas",]
+
+
+names<-unique(MacroalgaReplica$Mes)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-MacroalgaReplica[MacroalgaReplica$Mes==i | MacroalgaReplica$Mes ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Mes)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+  namae<-c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)","porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Mes,FALSE))
+  #lev<-leveneTest(y~Mes,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsMESAlgaspermaFIS<-data.frame(name1,name2,pval,levene)
+
+pvalsMESAlgaspermaFIS$name<-paste0(pvalsMESAlgaspermaFIS$name1,"-",pvalsMESAlgaspermaFIS$name2)
+rownames(pvalsMESAlgaspermaFIS) <- pvalsMESAlgaspermaFIS$name
+
+LABELSMES <- generate_label_Krus(pvalsMESAlgaspermaFIS , "NANANANAANNBATMANNN")
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes, y = porcentaje, fill = Mes)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de macroalgas por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELSMES[,2][1], label=LABELSMES[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][2], label=LABELSMES[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELSMES[,2][3], label=LABELSMES[,1][3], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+  
+gbox
+
+
+names<-unique(MacroalgaReplica$Zona)
+pval<-c()
+name1<-c()
+name2<-c()
+#levene<-c()
+for (i in names){
+  for (j in names){
+  if(i != j){
+  filtered<-MacroalgaReplica[MacroalgaReplica$Zona==i | MacroalgaReplica$Zona ==j,]
+  #find optimal lambda for Box-Cox transformation 
+  bc <- boxcox(filtered$porcentaje~filtered$Zona)
+  lambda <- bc$x[which.max(bc$y)]
+  #box  cox transform
+  filtered$y<-((filtered$porcentaje^lambda-1)/lambda)
+
+  namae<-c("Profundidad (m)","Temperatura (°C)","pH","Salinidad (psu)","porcentaje")
+  kru<-pvalueget(permanov(filtered,namae,filtered$Zona,FALSE))
+  #lev<-leveneTest(y~Zona,data=filtered)$Pr[1]
+  #levene<-c(levene,lev)
+  pval<-c(pval,kru)
+  name1<-c(name1,j)
+  name2<-c(name2,i)
+  }
+  }
+}
+pvalsZONAAlgaspermaFIS<-data.frame(name1,name2,pval,levene)
+
+pvalsZONAAlgaspermaFIS$name<-paste0(pvalsZONAAlgaspermaFIS$name1,"-",pvalsZONAAlgaspermaFIS$name2)
+rownames(pvalsZONAAlgaspermaFIS) <- pvalsZONAAlgaspermaFIS$name
+
+LABELS <- generate_label_Krus(pvalsZONAAlgaspermaFIS , "CoralReplica$Mes_Zona")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+
+gbox<-ggplot(MacroalgaReplica, aes(x = Zona, y = porcentaje, fill = Zona)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"))+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de coral muerto por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+gbox
+
+gbox<-gbox +annotate(geom="text",x=LABELS[,2][1], label=LABELS[,1][1], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))+
+  annotate(geom="text",x=LABELS[,2][2], label=LABELS[,1][2], y = max(gbox$data$porcentaje)+0.1*max(gbox$data$porcentaje))
+gbox
+
+############## Pvalueing ### Add this to all the other chunks
+library(ggpubr)
+
+group.colors <- c(Febrero ="#9ECAE1" , Julio= "#4292C6" , Octubre = "#084594")
+gbox<-ggplot(MacroalgaReplica, aes(x = Mes, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Mes)) +
+  ggtitle("Cobertura de macroalgas por Mes") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Febrero","Febrero","Julio"), xmax = c("Julio","Octubre","Octubre"), y.position = c(45,40,45), label = c(paste0("Permanova p = ",round(pvalsMESAlgaspermaFIS$pval[1], digits = 5)),paste0("Permanova p = ",round(pvalsMESAlgaspermaFIS$pval[2], digits = 5)),paste0("Permanova p = ",round(pvalsMESAlgaspermaFIS$pval[4], digits = 5))))
+
+gbox
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera= "#084594")
+gbox<-ggplot(MacroalgaReplica, aes(x = Zona, y = porcentaje)) +
+  geom_bar(stat="summary", fun = mean, position=position_dodge2(preserve="single"),fill=group.colors)+
+  stat_boxplot(geom ='errorbar', position="dodge")+
+  #stat_boxplot(geom ='errorbar')+
+  #geom_boxplot(position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Zona)) +
+  ggtitle("Cobertura de macroalgas por Zona") +
+  #scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)+
+  geom_bracket(xmin = c("Dentro"), xmax = c("Fuera"), y.position = c(40), label = c(paste0("Permanova p = ",round(pvalsZONAAlgaspermaFIS$pval[1], digits = 5))))
+  #scale_fill_brewer(palette = "Paired")
+gbox
+```
+
+
+
+```{r}
+
+
+
+
+library(ggbiplot)
+
+mtcars.pca <- prcomp(mtcars[,c(1:7,10,11)], center = TRUE,scale. = TRUE)
+
+summary(mtcars.pca)
+
+ggbiplot(mtcars.pca)
+a<-mtcars[,c(1:7,10,11)]
+```
+```{r}
+
+```
+
+```{r}
+library(plyr)
+library(dplyr)
+
+MCFIS<-reptotM%>% group_by(Major_Category)%>%
+  summarise(mean_porcentaje= mean(porcentaje), sd_porcentaje= sd(porcentaje), med_porcentaje=median(porcentaje)
+,mean_temperatura= mean(`Temperatura (°C)`), sd_temperatura= sd(`Temperatura (°C)`), med_temperatura=median(`Temperatura (°C)`), mean_pH= mean(pH), sd_pH= sd(pH), med_pH=median(pH),mean_salinidad= mean(`Salinidad (psu)`), sd_salinidad= sd(`Salinidad (psu)`), med_salinidad=median(`Salinidad (psu)`), mean_profundidad= mean(`Profundidad (m)`), sd_profundidad= sd(`Profundidad (m)`), med_profundidad=median(`Profundidad (m)`))
+
+#MCFIS<-reptotM%>% group_by(Major_Category)%>%
+  #summarise(mean_porcentaje= mean(porcentaje), mean_temperatura= mean(`Temperatura (°C)`), mean_pH= mean(pH), mean_salinidad= mean(`Salinidad (psu)`),mean_profundidad= mean(`Profundidad (m)`))
+rownames(MCFIS)<-MCFIS$Major_Category
+
+MCFIS.pca <- prcomp(MCFIS[,c(2:16)], center = TRUE,scale. = TRUE)
+library(ggbiplot)
+summary(MCFIS.pca)
+
+ggbiplot(MCFIS.pca,labels=rownames(MCFIS))
+
+
+
+```
+```{r}
+library(plyr)
+library(dplyr)
+MCFIS<-reptotM%>% group_by(Major_Category)%>%
+  summarise(mean_porcentaje= mean(porcentaje), mean_temperatura= mean(`Temperatura (°C)`), mean_pH= mean(pH), mean_salinidad= mean(`Salinidad (psu)`),mean_profundidad= mean(`Profundidad (m)`))
+
+#filtrar pot el major category que se necesa
+rownames(MCFIS)<-MCFIS$Major_Category
+
+MCFIS.pca <- prcomp(MCFIS[,c(2:6)][-c(8,9),], center = TRUE,scale. = TRUE)
+library(ggbiplot)
+summary(MCFIS.pca)
+
+g<-ggbiplot(MCFIS.pca,labels=rownames(MCFIS)[1:7])
+g<- g+ coord_equal(ratio=1.5)
+g
+```
+```{r}
+
+MCFIS<-reptotM%>% group_by(Major_Category, Zona)%>%
+  summarise(mean_porcentaje= mean(porcentaje), mean_temperatura= mean(`Temperatura (°C)`), mean_pH= mean(pH), mean_salinidad= mean(`Salinidad (psu)`),mean_profundidad= mean(`Profundidad (m)`))
+MCFIS_Coral<-filter(MCFIS,Major_Category=="Coral")
+#filtrar pot el major category que se necesa
+rownames(MCFIS_Coral)<-MCFIS_Coral$Zona
+
+MCFIS_Coral.pca <- prcomp(MCFIS_Coral[,c(3:7)], center = TRUE,scale. = TRUE)
+library(ggbiplot)
+summary(MCFIS_Coral.pca)
+
+g<-ggbiplot(MCFIS_Coral.pca,labels=rownames(MCFIS_Coral)[1:2])
+g<- g+ coord_equal(ratio=1.5)
+g
+```
+
+```{r}
+library(plyr)
+library(dplyr)
+MCFIS<-reptotM%>% group_by(Major_Category)%>%
+  summarise(mean_porcentaje= mean(porcentaje), mean_temperatura= mean(`Temperatura (°C)`), mean_pH= mean(pH), mean_salinidad= mean(`Salinidad (psu)`),mean_profundidad= mean(`Profundidad (m)`))
+rownames(MCFIS)<-MCFIS$Major_Category
+
+MCFIS.pca <- prcomp(MCFIS[,c(2:6)], center = TRUE,scale. = TRUE)
+library(ggbiplot)
+summary(MCFIS.pca)
+
+g<-ggbiplot(MCFIS.pca,labels=rownames(MCFIS))
+g<- g+ coord_equal(ratio=1)
+g<- g+ coord_equal(ratio=0.5)
+
+```
+```{r}
+library(plyr)
+library(dplyr)
+MCFIS<-reptotM%>% group_by(Major_Category)%>%
+  summarise(med_porcentaje= median(porcentaje), med_temperatura= median(`Temperatura (°C)`), med_pH= median(pH), med_salinidad= median(`Salinidad (psu)`),med_profundidad= median(`Profundidad (m)`))
+rownames(MCFIS)<-MCFIS$Major_Category
+
+MCFIS.pca <- prcomp(MCFIS[,c(2:6)], center = TRUE,scale. = TRUE)
+library(ggbiplot)
+summary(MCFIS.pca)
+
+g<-ggbiplot(MCFIS.pca,labels=rownames(MCFIS))
+g<- g+ coord_equal(ratio=1)
+g<- g+ coord_equal(ratio=0.5)
+```
+```{r}
+library(plyr)
+library(dplyr)
+MCFIS<-reptotM%>% group_by(Major_Category)%>%
+  summarise(sd_porcentaje= sd(porcentaje), sd_temperatura= sd(`Temperatura (°C)`), sd_pH= sd(pH), sd_salinidad= sd(`Salinidad (psu)`),sd_profundidad= sd(`Profundidad (m)`))
+rownames(MCFIS)<-MCFIS$Major_Category
+
+MCFIS.pca <- prcomp(MCFIS[,c(2:6)], center = TRUE,scale. = TRUE)
+library(ggbiplot)
+summary(MCFIS.pca)
+
+g<-ggbiplot(MCFIS.pca,labels=rownames(MCFIS))
+#g<- g+ coord_equal(ratio=1)
+#g<- g+ coord_equal(ratio=0.5)
+```
+```{r}
+library(plyr)
+library(dplyr)
+MCFIS<-reptotM%>% group_by(Major_Category)%>%
+  summarise(sd_temperatura= sd(`Temperatura (°C)`), sd_pH= sd(pH), sd_salinidad= sd(`Salinidad (psu)`),sd_profundidad= sd(`Profundidad (m)`))
+rownames(MCFIS)<-MCFIS$Major_Category
+
+MCFIS.pca <- prcomp(MCFIS[,c(2:5)], center = TRUE,scale. = TRUE)
+library(ggbiplot)
+summary(MCFIS.pca)
+
+g<-ggbiplot(MCFIS.pca,labels=rownames(MCFIS))
+```
+
+
+```{r}
+library(FactoMineR)
+library(factoextra)
+
+
+#datos.nci <- scale(reptotnum, center = TRUE, scale = TRUE)
+#pca_nci <- prcomp(reptotnum, scale = TRUE)
+summary(MCFIS.pca)
+fviz_contrib(MCFIS.pca, choice = "var", axes = 1, top = 12)
+```
+
+```{r}
+# Graficas porcentaje coral por mes: Febrero
+Porcentaje_coral_feb<-filter(Porcentaje_coral,Mes=="Febrero")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+Porcentaje_coral_feb$porcentaje_mes<- as.numeric(Porcentaje_coral_feb$porcentaje_mes)
+
+p<-ggplot(Porcentaje_coral_feb, aes(x = Categoria, y = porcentaje_mes, fill = Zona)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por zona en febrero") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+p
+```
+
+```{r}
+# Graficas porcentaje coral por mes: Julio
+Porcentaje_coral_jul<-filter(Porcentaje_coral,Mes=="Julio")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+Porcentaje_coral_jul$porcentaje_mes<- as.numeric(Porcentaje_coral_jul$porcentaje_mes)
+
+p<-ggplot(Porcentaje_coral_jul, aes(x = Categoria, y = porcentaje_mes, fill = Zona)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por zona en julio") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+p
+```
+
+```{r}
+# Graficas porcentaje coral por mes: Octubre
+Porcentaje_coral_oct<-filter(Porcentaje_coral,Mes=="Octubre")
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+Porcentaje_coral_oct$porcentaje_mes<- as.numeric(Porcentaje_coral_oct$porcentaje_mes)
+
+p<-ggplot(Porcentaje_coral_oct, aes(x = Categoria, y = porcentaje_mes, fill = Zona)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por zona en octubre") +
+  scale_y_continuous(breaks=seq(0,60,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+p
+```
+
+```{r}
+Porcentaje_coral_1<-Porcentaje_coral
+
+Cambio_nombre_especie<-c("Coral vivo","Coral muerto")
+Nombre_real<-c("Coral_vivo","Coral_muerto")
+
+
+for (i in 1:length(Porcentaje_coral_1$Categoria)){Porcentaje_coral_1$Categoria <- replace(Porcentaje_coral_1$Categoria, Porcentaje_coral_1$Categoria == Cambio_nombre_especie[i], Nombre_real[i])}
+
+group.colors <- c(Coral_vivo ="#9ECAE1" , Coral_muerto = "#084594")
+
+
+
+group.colors <- c(Coral_vivo ="#9ECAE1" , Coral_muerto = "#084594")
+
+Porcentaje_coral$porcentaje_mes_zona<- as.numeric(Porcentaje_coral$porcentaje_mes_zona)
+
+p<-ggplot(Porcentaje_coral_1, aes(x = Mes_Zona, y = porcentaje_mes_zona, fill = Categoria)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por mes-zona") +
+  scale_y_continuous(breaks=seq(0,80,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+p
+```
+
+
+
+```{r}
+library(dplyr)
+conteo_coral_zona<-Porcentaje_coral %>%
+group_by(Categoria,Zona) %>% 
+  summarise(porcentaje_zona = sum(porcentaje_zona))
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+conteo_coral_zona$porcentaje_zona<- as.numeric(conteo_coral_zona$porcentaje_zona)
+
+p<-ggplot(conteo_coral_zona, aes(x = Categoria, y = porcentaje_zona, fill = Zona)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por zona") +
+  scale_y_continuous(breaks=seq(0,80,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+p
+```
+
+```{r}
+library(dplyr)
+conteo_coral_zona<-Porcentaje_coral %>%
+group_by(Categoria,Zona) %>% 
+  summarise(porcentaje_zona = sum(porcentaje_zona))
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+
+
+group.colors <- c(Dentro ="#9ECAE1" , Fuera = "#084594")
+
+conteo_coral_zona$porcentaje_zona<- as.numeric(conteo_coral_zona$porcentaje_zona)
+
+p<-ggplot(conteo_coral_zona, aes(x = Categoria, y = porcentaje_zona, fill = Zona)) +
+  #geom_bar(stat="summary", fun.y = "mean", position=position_dodge2(preserve="single"))+
+  geom_bar(stat="summary", fun= mean, position=position_dodge2(preserve="single"))+
+  #stat_boxplot(geom ='errorbar', position=position_dodge2(preserve="single"))+
+  ylab(expression(Porcentaje_de_cobertura )) +
+  xlab(expression(Categoria_Mayor)) +
+  ggtitle("Cobertura bentónica por mes_zona") +
+  scale_y_continuous(breaks=seq(0,80,10))+
+  theme(plot.title=element_text(hjust=0.5))+
+  scale_fill_manual(values=group.colors)
+  #scale_fill_brewer(palette = "Paired")
+p
+```
+
+
+```{r}
+#Falta porcentaje coral muerto, unir coral y coral muerto
+```
+
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
